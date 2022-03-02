@@ -11,6 +11,7 @@ class LearnableVQ(nn.Module):
         nn.Module.__init__(self)
 
         self.encoder = Encoder(config)
+
         self.pq = Quantization.from_faiss_index(config.index_file)
         self.ivf = IVF_CPU.from_faiss_index(config.index_file)
 
@@ -54,18 +55,27 @@ class LearnableVQ(nn.Module):
                     origin_q_emb, origin_d_emb, origin_n_emb,
                     doc_ids, neg_ids,
                 temperature,
-                loss_method):
+                loss_method,
+                fix_emb='doc'):
 
-        query_vecs = self.encoder.query_encoder(query_token_ids, query_attention_mask)
+        if 'query' in fix_emb:
+            query_vecs = origin_q_emb
+        else:
+            query_vecs = self.encoder.query_encoder(query_token_ids, query_attention_mask)
         rotate_query_vecs = self.pq.rotate_vec(query_vecs)
-        doc_vecs, neg_vecs = origin_d_emb, origin_n_emb
+
+        if 'doc' in fix_emb:
+            doc_vecs, neg_vecs = origin_d_emb, origin_n_emb
+        else:
+            doc_vecs = self.encoder.query_encoder(doc_token_ids, doc_attention_mask)
+            neg_vecs = self.encoder.query_encoder(neg_token_ids, neg_doc_attention_mask)
 
         dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device)
 
         quantized_doc = self.pq.quantization(doc_vecs)
         quantized_neg = self.pq.quantization(neg_vecs)
 
-        origin_score = self.compute_score(origin_q_emb, doc_vecs, neg_vecs, temperature)
+        origin_score = self.compute_score(origin_q_emb, origin_d_emb, origin_n_emb, temperature)
         dense_score = self.compute_score(query_vecs, doc_vecs, neg_vecs, temperature)
         ivf_score = self.compute_score(rotate_query_vecs, dc_emb, nc_emb, temperature)
         pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
