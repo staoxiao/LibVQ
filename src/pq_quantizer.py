@@ -1,6 +1,9 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 import faiss
+import numpy as np
+import os
 
 class Quantization(nn.Module):
     def __int__(self, embedding_size=768, partition=96, centroids=256, rotate=None, codebook=None):
@@ -70,3 +73,8 @@ class Quantization(nn.Module):
 
     def quantization_loss(self, vec, quantized_vecs):
         return torch.mean(torch.sum((vec - quantized_vecs) ** 2, dim=-1))
+
+    def save(self, save_path):
+        if self.rotate:
+            np.save(os.path.join(save_path, 'rotate_matrix'), self.rotate.cpu().numpy())
+        np.save(os.path.join(save_path, 'codebook'), self.codebook.cpu().numpy())

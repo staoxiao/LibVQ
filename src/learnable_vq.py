@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -11,7 +12,6 @@ class LearnableVQ(nn.Module):
         nn.Module.__init__(self)
 
         self.encoder = Encoder(config)
-
         self.pq = Quantization.from_faiss_index(config.index_file)
         self.ivf = IVF_CPU.from_faiss_index(config.index_file)
 
@@ -83,3 +83,8 @@ class LearnableVQ(nn.Module):
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score, loss_method=loss_method)
         loss = dense_loss + ivf_loss + pq_loss
         return loss. dense_loss, ivf_loss, pq_loss
+
+    def save(self, save_path):
+        torch.save(self.encoder.state_dict(), os.path.join(save_path, 'encoder.bin'))
+        self.ivf.save(os.path.join(save_path, 'ivf_centers'))
+        self.pq.save(save_path)
