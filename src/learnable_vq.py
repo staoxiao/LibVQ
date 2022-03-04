@@ -1,11 +1,14 @@
+import sys
+sys.path.append('./')
+
 import os
 import torch
 from torch import nn
 import torch.nn.functional as F
 
-from src.encoder import Encoder
-from src.ivf_quantizer import IVF_CPU
-from src.pq_quantizer import Quantization
+from models.encoder import Encoder
+from models.ivf_quantizer import IVF_CPU
+from models.pq_quantizer import Quantization
 
 class LearnableVQ(nn.Module):
     def __init__(self, config):
@@ -53,21 +56,21 @@ class LearnableVQ(nn.Module):
                     neg_token_ids, neg_doc_attention_mask,
                     origin_q_emb, origin_d_emb, origin_n_emb,
                     doc_ids, neg_ids,
-                temperature,
-                loss_method,
+                temperature=1.0,
+                loss_method='distill',
                 fix_emb='doc'):
 
         if 'query' in fix_emb:
             query_vecs = origin_q_emb
         else:
-            query_vecs = self.encoder.query_encoder(query_token_ids, query_attention_mask)
+            query_vecs = self.encoder.query_emb(query_token_ids, query_attention_mask)
         rotate_query_vecs = self.pq.rotate_vec(query_vecs)
 
         if 'doc' in fix_emb:
             doc_vecs, neg_vecs = origin_d_emb, origin_n_emb
         else:
-            doc_vecs = self.encoder.query_encoder(doc_token_ids, doc_attention_mask)
-            neg_vecs = self.encoder.query_encoder(neg_token_ids, neg_doc_attention_mask)
+            doc_vecs = self.encoder.doc_emb(doc_token_ids, doc_attention_mask)
+            neg_vecs = self.encoder.doc_emb(neg_token_ids, neg_doc_attention_mask)
 
         dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device)
 

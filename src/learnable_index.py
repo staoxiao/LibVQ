@@ -10,29 +10,46 @@ from torch.optim import Optimizer
 import transformers
 from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
 import argparse
+import torch.multiprocessing as mp
 
-from src.learnable_vq import LearnableVQ
-from src.index.FaissIndex import FaissIndex
-from src.dataset.dataloader import DataloaderForSubGraphHard
-from src.dataset.dataset import TextTokenIdsCache
+from learnable_vq import LearnableVQ
+from index.FaissIndex import FaissIndex
+from dataset.dataloader import DataloaderForSubGraphHard
+from dataset.dataset import TextTokenIdsCache
 
 class LearnableIndex(FaissIndex):
-    def __int__(self):
+    def __init__(self):
         super(LearnableIndex).__init__()
         config = AutoConfig.from_pretrained('bert-base-uncased')
         config.pretrained_model_name = 'bert-base-uncased'
         config.use_two_encoder = True
-        config.sentence_pooling_method = 'mean'
+        config.sentence_pooling_method = 'first'
         config.index_file = './data/passage/evaluate/AR_G_0/ivf_opq.index'
         self.model = LearnableVQ(config)
 
-    # def fit_multi_gpu(self):
-    #     mp.spawn(self.fit,
-    #              args=(model_args, data_args, training_args),
-    #              nprocs=training_args.world_size,
-    #              join=True)
+    def fit_multi_gpu(self,
+            dataloader,
+            world_size: int = 1,
+            epochs: int = 1,
+            warmup_steps: int = 1000,
+            optimizer_class: Type[Optimizer] = AdamW,
+            lr_params: Dict[str, object] = {'encoder_lr': 2e-5, 'pq_lr':1e-6, 'ivf_lr':1e-4},
+            weight_decay: float = 0.01,
+            output_path: str = None,
+            max_grad_norm: float = -1,
+            use_amp: bool = False,
+            show_progress_bar: bool = True,
+            checkpoint_path: str = None,
+            checkpoint_save_steps: int = 500,
+            logging_steps: int = 100
+            ):
+        mp.spawn(self.fit,
+                 args=(dataloader),
+                 nprocs=world_size,
+                 join=True)
 
     def fit(self,
+            local_rank,
             dataloader,
             epochs: int = 1,
             warmup_steps: int = 1000,
@@ -45,9 +62,14 @@ class LearnableIndex(FaissIndex):
             show_progress_bar: bool = True,
             checkpoint_path: str = None,
             checkpoint_save_steps: int = 500,
-            local_rank: int = -1,
             logging_steps: int = 100
             ):
+
+        device = torch.device("cuda" if torch.cuda.is_available() else 'cpu',
+                              local_rank)
+        model = self.model.to(device)
+
+
         num_train_steps = len(dataloader)*epochs
         # Prepare optimizers
         param_optimizer = list(self.model.named_parameters())
@@ -72,7 +94,6 @@ class LearnableIndex(FaissIndex):
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=num_train_steps
         )
 
-
         loss, dense_loss, ivf_loss, pq_loss = 0., 0., 0., 0.
         global_step = 0
         for epoch in trange(epochs, desc="Epoch", disable=not show_progress_bar):
@@ -87,7 +108,7 @@ class LearnableIndex(FaissIndex):
                 origin_q_emb, origin_d_emb, origin_n_emb, \
                 doc_ids, neg_ids = sample
 
-                batch_loss, batch_dense_loss, batch_ivf_loss, batch_pq_loss = self.model(query_token_ids, query_attention_mask,
+                batch_loss, batch_dense_loss, batch_ivf_loss, batch_pq_loss = model(query_token_ids, query_attention_mask,
                                                                                         doc_token_ids, doc_attention_mask,
                                                                                         neg_token_ids, neg_doc_attention_mask,
                                                                                         origin_q_emb, origin_d_emb, origin_n_emb,
@@ -105,13 +126,21 @@ class LearnableIndex(FaissIndex):
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
 
                 optimizer.step()
-                self.model.ivf.update_centers()
+                self.model.ivf.update_centers(lr=lr_params['ivf_lr'])
 
                 scheduler.step()
                 optimizer.zero_grad()
                 self.model.ivf.zero_grad()
                 global_step += 1
 
+                print(
+                    '[{}] step:{}, train_loss: {:.5f} = {:.5f} + {:.5f} + {:.5f}'.
+                        format(local_rank,
+                               global_step,
+                               loss / global_step,
+                               dense_loss / global_step,
+                               ivf_loss / global_step,
+                               pq_loss / global_step))
 
                 if global_step % logging_steps == 0:
                     step_num = logging_steps
@@ -136,7 +165,6 @@ def main():
     parser.add_argument("--max_doc_length", type=int, default=512)
     parser.add_argument("--eval_batch_size", type=int, default=256)
     parser.add_argument("--mode", type=str, choices=["train", "dev", "test", "test2019","test2020"], default='dev')
-    parser.add_argument("--output_dir", type=str, required=True, default='evaluate/')
     parser.add_argument("--root_output_dir", type=str, required=False, default='./data')
     parser.add_argument("--gpu_rank", type=str, required=False, default=None)
 
@@ -156,22 +184,23 @@ def main():
                  maxk=args.maxk,
                  per_query_neg_num=args.per_query_neg_num,
                  per_device_train_batch_size=args.per_device_train_batch_size,
+                                           generate_batch_method='random',
                 queryids_cache=TextTokenIdsCache(data_dir=args.preprocess_dir, prefix="train-query"),
                 docids_cache=TextTokenIdsCache(data_dir=args.preprocess_dir, prefix="passages"),
                  max_query_length=24,
                  max_doc_length=128,
                  local_rank=0,
                  world_size=1,
-                 fix_emb='doc',
+                 fix_emb='doc, score',
                  doc_file='./data/passage/evaluate/AR_G_0/passages.memmap',
-                 query_file=None,
+                 query_file='./data/passage/evaluate/AR_G_0/train-query.memmap',
                  query_length=None,
                  doc_length=None,
                  enable_prefetch=True,
                  random_seed=42,
                  enable_gpu=True)
 
-    learnable_index.fit(dataloader)
+    learnable_index.fit(local_rank=0, dataloader=dataloader)
 
 
 if __name__ == '__main__':

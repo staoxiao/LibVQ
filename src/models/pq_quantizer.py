@@ -6,12 +6,12 @@ import numpy as np
 import os
 
 class Quantization(nn.Module):
-    def __int__(self, embedding_size=768, partition=96, centroids=256, rotate=None, codebook=None):
+    def __init__(self, embedding_size=768, partition=96, centroids=256, rotate=None, codebook=None):
         super(Quantization, self).__init__()
 
         self.partition = partition
 
-        if codebook:
+        if codebook is not None:
             self.codebook = nn.Parameter(torch.FloatTensor(codebook), requires_grad=True)
         else:
             self.codebook = nn.Parameter(
@@ -19,7 +19,7 @@ class Quantization(nn.Module):
                             embedding_size // partition).uniform_(-0.1, 0.1)).type(
                 torch.FloatTensor)
 
-        if rotate:
+        if rotate is not None:
             self.rotate = nn.Parameter(torch.FloatTensor(rotate), requires_grad=False)
         else:
             self.rotate = None
@@ -37,6 +37,7 @@ class Quantization(nn.Module):
         codebook = centroid_embeds.reshape(ivf_index.pq.M, ivf_index.pq.ksub, ivf_index.pq.dsub)
         partition = ivf_index.pq.M
 
+        print(cls)
         pq = cls(partition=partition, rotate=rotate, codebook=codebook)
         return pq
 

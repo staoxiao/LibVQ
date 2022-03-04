@@ -14,7 +14,7 @@ def dist_gather_tensor(vecs, world_size, local_rank=0, detach=False):
     return all_tensors
 
 class IVF_CPU(nn.Module):
-    def __int__(self, center_vecs, id2center):
+    def __init__(self, center_vecs, id2center):
         super(IVF_CPU, self).__init__()
         self.center_vecs = center_vecs
         self.id2center = id2center
@@ -42,7 +42,6 @@ class IVF_CPU(nn.Module):
         return ivf
 
     def get_batch_centers(self, batch_centers_index, device):
-        batch_centers_index = batch_centers_index.cpu().numpy()
         c_embs = self.center_vecs[batch_centers_index]
         self.batch_centers_index = batch_centers_index
         self.batch_center_vecs = torch.FloatTensor(c_embs).to(device)
@@ -65,15 +64,16 @@ class IVF_CPU(nn.Module):
         batch_cids, batch_dc_ids, batch_nc_ids = self.merge_and_dispatch(doc_ids, neg_ids)
 
         self.get_batch_centers(batch_cids, device)
+        batch_dc_ids, batch_nc_ids = batch_dc_ids.to(device), batch_nc_ids.to(device)
         dc_emb = self.batch_center_vecs.index_select(dim=0, index=batch_dc_ids)
         nc_emb = self.batch_center_vecs.index_select(dim=0, index=batch_nc_ids)
         return dc_emb, nc_emb
 
     def update_centers(self, lr):
-        grad = self.batch_center_vecs.grad.unsqueeze(0)
-        grad = dist_gather_tensor(grad, dist.get_world_size(), detach=True)
-        avg_grad = torch.mean(self.batch_center_vecs, dim=0)
-        self.center_grad[self.batch_centers_index] += avg_grad.detach().cpu().numpy()
+        grad = self.batch_center_vecs.grad
+        # grad = dist_gather_tensor(grad.unsqueeze(0), dist.get_world_size(), detach=True)
+        # grad = torch.mean(grad, dim=0)
+        self.center_grad[self.batch_centers_index] += grad.detach().cpu().numpy()
 
         self.center_vecs = self.center_vecs - lr * self.center_grad
 

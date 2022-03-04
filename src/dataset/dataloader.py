@@ -1,10 +1,9 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT License.
+import sys
+sys.path.append('./src')
 
 import os
 import json
 import logging
-import sys
 import traceback
 import random
 from queue import Queue
@@ -13,7 +12,7 @@ import numpy as np
 import torch
 from torch.utils.data import IterableDataset
 from collections import defaultdict
-from src.dataset.dataset import SequenceDataset, load_rel
+from dataset.dataset import SequenceDataset, load_rel
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +25,7 @@ class DataloaderForSubGraphHard(IterableDataset):
                  maxk,
                  per_query_neg_num,
                  per_device_train_batch_size,
+                 generate_batch_method,
                  queryids_cache, max_query_length,
                  docids_cache, max_doc_length,
                  local_rank,
@@ -69,12 +69,16 @@ class DataloaderForSubGraphHard(IterableDataset):
         self.enable_prefetch = enable_prefetch
         self.random_seed = random_seed
         self.enable_gpu = enable_gpu
+        self.world_size = world_size
+        self.generate_batch_method = generate_batch_method
 
         self.fix_emb = fix_emb
-        if 'doc' in fix_emb:
+        if 'doc' in fix_emb or 'score' in self.fix_emb:
             self.init_doc_embedding(doc_file)
-        if 'query' in fix_emb:
+        if 'query' in fix_emb or 'score' in self.fix_emb:
             self.init_query_embedding(query_file)
+
+        print('--------------------------------------')
 
 
     def random_negative_sample(self, queries):
@@ -230,9 +234,6 @@ class DataloaderForSubGraphHard(IterableDataset):
         return self.data_collate(queries_data, docs_data, hard_docs_data)
 
     def get_qid(self, search_method, cur_q_num):
-        if cur_q_num%self.patch_batch_size==0:
-            return random.sample(self.query_set, 1)[0]
-
         if len(self.node_queue) == 0:
             qid = random.sample(self.query_set, 1)[0]
             self.node_queue.append(qid)
@@ -324,14 +325,14 @@ class DataloaderForSubGraphHard(IterableDataset):
         nids = nids[:all_num*self.hard_num]
 
         q_emb, d_emb, n_emb = None, None, None
-        if 'doc' in self.fix_emb:
+        if 'doc' in self.fix_emb or 'score' in self.fix_emb:
             d_emb = self.doc_embeddings[dids]
             d_emb = torch.FloatTensor(d_emb)
 
             n_emb = self.doc_embeddings[nids]
             n_emb = torch.FloatTensor(n_emb)
 
-        if 'query' in self.fix_emb:
+        if 'query' in self.fix_emb or 'score' in self.fix_emb:
             q_emb = self.query_embeddings[qids]
             q_emb = torch.FloatTensor(q_emb)
 
@@ -339,9 +340,9 @@ class DataloaderForSubGraphHard(IterableDataset):
         input_query_ids[self.start_inx:self.end_inx], query_attention_mask[self.start_inx:self.end_inx],
         input_doc_ids[self.start_inx:self.end_inx], doc_attention_mask[self.start_inx:self.end_inx],
         neg_doc_ids[self.nstart_inx:self.nend_inx], neg_doc_attention_mask[self.nstart_inx:self.nend_inx],
-        q_emb, d_emb, n_emb, qids, dids, nids)
+        q_emb, d_emb, n_emb, dids, nids)
         if self.enable_gpu:
-            batch_data = (x.cuda() if x is not None else None for x in batch_data)
+            batch_data = (x.cuda() if isinstance(x, torch.Tensor) else x for x in batch_data)
 
         return batch_data
 

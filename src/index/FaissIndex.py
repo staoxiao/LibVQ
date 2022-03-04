@@ -39,8 +39,6 @@ class FaissIndex(BaseIndex):
             self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
         elif index_method == 'pq':
             self.index = faiss.index_factory(emb_size, f"PQ{subvector_num}x{subvector_bits}", self.index_metric)
-        else:
-            raise
 
         self.index_method = index_method
         self.ivf_centers =ivf_centers
