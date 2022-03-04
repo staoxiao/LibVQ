@@ -51,7 +51,6 @@ class LearnableVQ(nn.Module):
                     query_token_ids, query_attention_mask,
                     doc_token_ids, doc_attention_mask,
                     neg_token_ids, neg_doc_attention_mask,
-                    rel_pair_mask, hard_pair_mask,
                     origin_q_emb, origin_d_emb, origin_n_emb,
                     doc_ids, neg_ids,
                 temperature,
@@ -82,9 +81,10 @@ class LearnableVQ(nn.Module):
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score, loss_method=loss_method)
         loss = dense_loss + ivf_loss + pq_loss
-        return loss. dense_loss, ivf_loss, pq_loss
+        return loss, dense_loss, ivf_loss, pq_loss
 
     def save(self, save_path):
         torch.save(self.encoder.state_dict(), os.path.join(save_path, 'encoder.bin'))
         self.ivf.save(os.path.join(save_path, 'ivf_centers'))
         self.pq.save(save_path)
+        self.config.to_json_file(os.path.join(save_path, 'config.json'))
