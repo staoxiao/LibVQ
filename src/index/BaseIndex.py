@@ -18,12 +18,12 @@ class BaseIndex():
     def GPU_to_CPU(self):
         raise NotImplementedError
 
-    def test(self, query_embeddings, qids, ground_truths, topk, batch_size, nprobe, MRR_cutoffs, Recall_cutoffs):
+    def test(self, query_embeddings, qids, ground_truths, topk, batch_size, MRR_cutoffs, Recall_cutoffs):
         assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
-        scores, retrieve_results = self.search(query_embeddings, topk, batch_size, nprobe)
+        scores, retrieve_results = self.search(query_embeddings, topk, batch_size)
         return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)
 
-    def search(self, query_embeddings, topk, batch_size, nprobe):
+    def search(self, query_embeddings, topk, batch_size):
         raise NotImplementedError
 
     def evaluate(self, retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids):

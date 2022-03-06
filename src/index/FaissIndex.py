@@ -78,7 +78,7 @@ class FaissIndex(BaseIndex):
         else:
             self.index.nprobe = nprobe
 
-    def search(self, query_embeddings, topk=1000, batch_size=None, nprobe=100):
+    def search(self, query_embeddings, topk=1000, batch_size=None):
         start_time = time.time()
         if batch_size:
             batch_num = math.ceil(len(query_embeddings) / batch_size)
@@ -154,17 +154,17 @@ def main():
                        subvector_num=args.subvector_num,
                        subvector_bits=args.subvector_bits,
                        dist_mode=args.dist_mode)
-    index.fit(doc_embeddings)
-    index.add(doc_embeddings)
-    # index.load_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
+    # index.fit(doc_embeddings)
+    # index.add(doc_embeddings)
+    index.load_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
 
-    index.save_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
+    # index.save_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
     index.set_nprobe(args.nprobe)
 
     ground_truths = load_rel(args.rel_file)
     if args.mode != 'train':
         qids = list(range(len(query_embeddings)))
-        index.test(query_embeddings, qids, ground_truths, topk=args.topk, batch_size=64, nprobe=args.nprobe,
+        index.test(query_embeddings, qids, ground_truths, topk=args.topk, batch_size=64,
                    MRR_cutoffs=args.MRR_cutoffs, Recall_cutoffs=args.Recall_cutoffs)
 
     if args.save_hardneg_to_json:

@@ -1,7 +1,3 @@
-'''
-The script is opensourced by: https://github.com/jingtaozhan/DRhard
-'''
-
 import os
 import pickle
 import subprocess
@@ -11,6 +7,7 @@ import argparse
 import json
 from tqdm import tqdm
 from transformers import AutoTokenizer
+
 
 def pad_input_ids(input_ids, max_length,
                   pad_on_left=False,
@@ -31,19 +28,19 @@ def pad_input_ids(input_ids, max_length,
 
 def tokenize_to_file(args, in_path, output_dir, line_fn, max_length, begin_idx, end_idx):
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name_or_path, do_lower_case = True)
+        args.model_name_or_path, do_lower_case=True)
     os.makedirs(output_dir, exist_ok=True)
     data_cnt = end_idx - begin_idx
     ids_array = np.memmap(
         os.path.join(output_dir, "ids.memmap"),
-        shape=(data_cnt, ), mode='w+', dtype=np.int32)
+        shape=(data_cnt,), mode='w+', dtype=np.int32)
     token_ids_array = np.memmap(
         os.path.join(output_dir, "token_ids.memmap"),
         shape=(data_cnt, max_length), mode='w+', dtype=np.int32)
     token_length_array = np.memmap(
         os.path.join(output_dir, "lengths.memmap"),
-        shape=(data_cnt, ), mode='w+', dtype=np.int32)
-    pbar = tqdm(total=end_idx-begin_idx, desc=f"Tokenizing")
+        shape=(data_cnt,), mode='w+', dtype=np.int32)
+    pbar = tqdm(total=end_idx - begin_idx, desc=f"Tokenizing")
     ids_dict = []
     for idx, line in enumerate(open(in_path, 'r')):
         if idx < begin_idx:
@@ -69,12 +66,12 @@ def multi_file_process(args, num_process, in_path, out_path, line_fn, max_length
     run_arguments = []
     for i in range(num_process):
         begin_idx = round(all_linecnt * i / num_process)
-        end_idx = round(all_linecnt * (i+1) / num_process)
+        end_idx = round(all_linecnt * (i + 1) / num_process)
         output_dir = f"{out_path}_split_{i}"
         run_arguments.append((
-                args, in_path, output_dir, line_fn,
-                max_length, begin_idx, end_idx
-            ))
+            args, in_path, output_dir, line_fn,
+            max_length, begin_idx, end_idx
+        ))
     pool = multiprocessing.Pool(processes=num_process)
     pool.starmap(tokenize_to_file, run_arguments)
     pool.close()
@@ -83,11 +80,11 @@ def multi_file_process(args, num_process, in_path, out_path, line_fn, max_length
     return splits_dir, all_linecnt
 
 
-def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_file, out_query_file, standard_qrel_file):
-
-    print( "Writing query files " + str(out_query_file) +
-        " and " + str(standard_qrel_file))
-    query_collection_path = os.path.join(args.data_dir,query_file)
+def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_file, out_query_file,
+                    standard_qrel_file):
+    print("Writing query files " + str(out_query_file) +
+          " and " + str(standard_qrel_file))
+    query_collection_path = os.path.join(args.data_dir, query_file)
     if positive_id_file is None:
         query_positive_id = None
         valid_query_num = int(subprocess.check_output(
@@ -104,9 +101,9 @@ def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_f
             query_positive_id.add(int(line.split()[0]))
         valid_query_num = len(query_positive_id)
 
-    print('query num:',valid_query_num)
+    print('query num:', valid_query_num)
 
-    out_query_path = os.path.join(args.out_data_dir,out_query_file,)
+    out_query_path = os.path.join(args.out_data_dir, out_query_file, )
 
     qid2offset = {}
 
@@ -115,19 +112,19 @@ def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_f
         args, args.threads, query_collection_path,
         out_query_path, QueryPreprocessingFn,
         args.max_query_length
-        )
+    )
 
     print('start merging splits')
 
     token_ids_array = np.memmap(
-        out_query_path+".memmap",
+        out_query_path + ".memmap",
         shape=(valid_query_num, args.max_query_length), mode='w+', dtype=np.int32)
     token_length_array = []
 
     idx = 0
     for split_dir in splits_dir_lst:
         ids_array = np.memmap(
-                os.path.join(split_dir, "ids.memmap"), mode='r', dtype=np.int32)
+            os.path.join(split_dir, "ids.memmap"), mode='r', dtype=np.int32)
         split_token_ids_array = np.memmap(
             os.path.join(split_dir, "token_ids.memmap"), mode='r', dtype=np.int32)
         split_token_ids_array = split_token_ids_array.reshape(len(ids_array), -1)
@@ -140,14 +137,14 @@ def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_f
                 # exclude the query as it is not in label set
                 continue
             token_ids_array[idx, :] = token_ids
-            token_length_array.append(length) 
+            token_length_array.append(length)
             qid2offset[q_id] = idx
             idx += 1
             if idx < 3:
                 print(str(idx) + " " + str(q_id))
     print(len(token_length_array), len(token_ids_array), idx)
     assert len(token_length_array) == len(token_ids_array) == idx
-    np.save(out_query_path+"_length.npy", np.array(token_length_array))
+    np.save(out_query_path + "_length.npy", np.array(token_length_array))
 
     qid2offset_path = os.path.join(
         args.out_data_dir,
@@ -167,40 +164,25 @@ def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_f
         print("No qrels file provided")
         return
     print("Writing qrels")
-    with open(os.path.join(args.out_data_dir, standard_qrel_file), "w", encoding='utf-8') as qrel_output: 
+    with open(os.path.join(args.out_data_dir, standard_qrel_file), "w", encoding='utf-8') as qrel_output:
         out_line_count = 0
         for line in open(query_positive_id_path, 'r', encoding='utf8'):
-            if 'quora' in args.data_dir:
-                topicid, _, docid, rel = line.strip('\n').split('\t')
-            else:
-                topicid, _, docid, rel = line.split()
-            topicid = int(topicid)
-            if args.data_type == 0:
-                docid = int(docid[1:])
-            elif args.data_type == 1:
-                docid = int(docid)
-            else:
-                docid = docid
-            qrel_output.write(str(qid2offset[topicid]) +
-                         "\t0\t" + str(pid2offset[docid]) +
-                         "\t" + rel + "\n")
+            queryid, docid, rel = line.split()
+            queryid = int(queryid)
+            docid = int(docid)
+            qrel_output.write(str(qid2offset[queryid]) +
+                              "\t0\t" + str(pid2offset[docid]) +
+                              "\t" + rel + "\n")
             out_line_count += 1
         print("Total lines written: " + str(out_line_count))
 
 
 def preprocess(args):
-    
     pid2offset = {}
-    if args.data_type == 0:
-        in_passage_path = os.path.join(
-            args.data_dir,
-            "msmarco-docs.tsv",
-        )
-    elif args.data_type == 1:
-        in_passage_path = os.path.join(
-            args.data_dir,
-            "collection.tsv",
-        )
+
+    in_passage_path = os.path.join(
+        args.data_dir,
+        "collection.tsv")
 
     out_passage_path = os.path.join(
         args.out_data_dir,
@@ -216,10 +198,10 @@ def preprocess(args):
         args, args.threads, in_passage_path,
         out_passage_path, PassagePreprocessingFn,
         args.max_seq_length
-        )
+    )
 
     token_ids_array = np.memmap(
-        out_passage_path+".memmap",
+        out_passage_path + ".memmap",
         shape=(all_linecnt, args.max_seq_length), mode='w+', dtype=np.int32)
     token_length_array = []
 
@@ -228,7 +210,7 @@ def preprocess(args):
     print('start merging splits')
     for split_dir in splits_dir_lst:
         ids_array = np.memmap(
-                os.path.join(split_dir, "ids.memmap"), mode='r', dtype=np.int32)
+            os.path.join(split_dir, "ids.memmap"), mode='r', dtype=np.int32)
         split_token_ids_array = np.memmap(
             os.path.join(split_dir, "token_ids.memmap"), mode='r', dtype=np.int32)
         split_token_ids_array = split_token_ids_array.reshape(len(ids_array), -1)
@@ -236,14 +218,14 @@ def preprocess(args):
             os.path.join(split_dir, "lengths.memmap"), mode='r', dtype=np.int32)
         for p_id, token_ids, length in zip(ids_array, split_token_ids_array, split_token_length_array):
             token_ids_array[idx, :] = token_ids
-            token_length_array.append(length) 
+            token_length_array.append(length)
             pid2offset[p_id] = idx
             idx += 1
             if idx < 3:
                 print(str(idx) + " " + str(p_id))
             out_line_count += 1
     assert len(token_length_array) == len(token_ids_array) == idx
-    np.save(out_passage_path+"_length.npy", np.array(token_length_array))
+    np.save(out_passage_path + "_length.npy", np.array(token_length_array))
 
     print("Total lines written: " + str(out_line_count))
     meta = {
@@ -252,77 +234,40 @@ def preprocess(args):
         'embedding_size': args.max_seq_length}
     with open(out_passage_path + "_meta", 'w') as f:
         json.dump(meta, f)
-    
+
     pid2offset_path = os.path.join(
         args.out_data_dir,
         "pid2offset.pickle",
     )
     with open(pid2offset_path, 'wb') as handle:
         pickle.dump(pid2offset, handle, protocol=4)
-    
+
     print("done saving pid2offset")
-    
-    if args.data_type == 0:
-        
-        write_query_rel(
-            args,
-            pid2offset,
-            "train-qid2offset.pickle",
-            "msmarco-doctrain-queries.tsv",
-            "msmarco-doctrain-qrels.tsv",
-            "train-query",
-            "train-qrel.tsv")
 
-        write_query_rel(
-            args,
-            pid2offset,
-            "dev-qid2offset.pickle",
-            "msmarco-docdev-queries.tsv",
-            "msmarco-docdev-qrels.tsv",
-            "dev-query",
-            "dev-qrel.tsv")
+    write_query_rel(
+        args,
+        pid2offset,
+        "train-qid2offset.pickle",
+        "queries.train.tsv",
+        "qrels.train.tsv",
+        "train-query",
+        "train-qrel.tsv")
 
-    elif args.data_type == 1:
-        write_query_rel(
-            args,
-            pid2offset,
-            "train-qid2offset.pickle",
-            "queries.train.tsv",
-            "qrels.train.tsv",
-            "train-query",
-            "train-qrel.tsv")
-
-        write_query_rel(
-            args,
-            pid2offset,
-            "dev-qid2offset.pickle",
-            "queries.dev.small.tsv",
-            "qrels.dev.small.tsv",
-            "dev-query",
-            "dev-qrel.tsv")
+    write_query_rel(
+        args,
+        pid2offset,
+        "dev-qid2offset.pickle",
+        "queries.dev.small.tsv",
+        "qrels.dev.small.tsv",
+        "dev-query",
+        "dev-qrel.tsv")
 
 
 def PassagePreprocessingFn(args, line, tokenizer):
-    if args.data_type == 0:
-        line_arr = line.split('\t')
-        p_id = int(line_arr[0][1:])  # remove "D"
-
-        url = line_arr[1].rstrip()
-        title = line_arr[2].rstrip()
-        p_text = line_arr[3].rstrip()
-        # NOTE: This linke is copied from ANCE, 
-        # but I think it's better to use <s> as the separator, 
-        full_text = url + "<sep>" + title + "<sep>" + p_text
-        # keep only first 10000 characters, should be sufficient for any
-        # experiment that uses less than 500 - 1k tokens
-        full_text = full_text[:args.max_doc_character]
-    elif args.data_type == 1:
-        line = line.strip()
-        line_arr = line.split('\t')
-        p_id = int(line_arr[0])
-
-        p_text = line_arr[-1].rstrip()
-        full_text = p_text[:args.max_doc_character]
+    line_arr = line.strip('\n').split('\t')
+    p_id = int(line_arr[0])  # remove "D"
+    full_text = "[SEP]".join(line_arr[1:])
+    full_text = full_text[:args.max_doc_character]
 
     passage = tokenizer.encode(
         full_text,
@@ -357,23 +302,23 @@ def get_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--model_name_or_path",
+        "--tokenizer_name",
         default="roberta-base",
         type=str,
     )
     parser.add_argument(
-        "--max_seq_length",
+        "--max_doc_length",
         default=512,
         type=int,
         help="The maximum total input sequence length after tokenization. Sequences longer "
-        "than this will be truncated, sequences shorter will be padded.",
+             "than this will be truncated, sequences shorter will be padded.",
     )
     parser.add_argument(
         "--max_query_length",
         default=64,
         type=int,
         help="The maximum total input sequence length after tokenization. Sequences longer "
-        "than this will be truncated, sequences shorter will be padded.",
+             "than this will be truncated, sequences shorter will be padded.",
     )
     parser.add_argument(
         "--max_doc_character",
@@ -383,33 +328,23 @@ def get_arguments():
     )
     parser.add_argument(
         "--data_type",
-        default=1,
-        type=int,
-        help="0 for doc, 1 for passage",
+        default=None,
+        type=str,
+        required=True,
     )
     parser.add_argument("--threads", type=int, default=64)
 
     args = parser.parse_args()
-
     return args
 
 
-def main():
-    args = get_arguments()
-    args.data_type = 0
-    args.data_dir = "./data/doc/dataset"
-    args.out_data_dir = "./data/doc/preprocess"
-    if not os.path.exists(args.out_data_dir):
-        os.makedirs(args.out_data_dir)
-    preprocess(args)
-
-    args.data_type = 1
-    args.data_dir = "./data/passage/dataset"
-    args.out_data_dir = "./data/passage/preprocess"
-    if not os.path.exists(args.out_data_dir):
-        os.makedirs(args.out_data_dir)
-    preprocess(args)
-
-
 if __name__ == '__main__':
-    main()
+    args = get_arguments()
+    args.data_dir = f"./data/{args.data_type}/dataset"
+    args.out_data_dir = f"./data/{args.data_type}/preprocess_{args.tokenizer_name}"
+    if not os.path.exists(args.out_data_dir):
+        os.makedirs(args.out_data_dir)
+    preprocess(args)
+
+    if args.delete_raw_data:
+        pass

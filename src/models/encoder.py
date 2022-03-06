@@ -12,6 +12,7 @@ class Encoder(nn.Module):
             self.doc_encoder = self.query_encoder
 
         self.config = config
+        self.output_embedding_size = config.hidden_size
 
     def pooling(self, emb_all, mask):
         if self.config.sentence_pooling_method == 'mean':
@@ -40,8 +41,8 @@ class Encoder(nn.Module):
         else:
             return self.doc_emb(input_ids, attention_mask)
 
-
-
+    def save(self, save_file):
+        torch.save(self.state_dict(), save_file)
 
 
 

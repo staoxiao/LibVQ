@@ -4,14 +4,7 @@ import faiss
 import torch.distributed as dist
 import numpy as np
 
-
-def dist_gather_tensor(vecs, world_size, local_rank=0, detach=False):
-    all_tensors = [torch.empty_like(vecs) for _ in range(world_size)]
-    dist.all_gather(all_tensors, vecs)
-    if not detach:
-        all_tensors[local_rank] = vecs
-    all_tensors = torch.cat(all_tensors, dim=0)
-    return all_tensors
+from utils import dist_gather_tensor
 
 class IVF_CPU(nn.Module):
     def __init__(self, center_vecs, id2center):

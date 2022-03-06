@@ -37,7 +37,6 @@ class Quantization(nn.Module):
         codebook = centroid_embeds.reshape(ivf_index.pq.M, ivf_index.pq.ksub, ivf_index.pq.dsub)
         partition = ivf_index.pq.M
 
-        print(cls)
         pq = cls(partition=partition, rotate=rotate, codebook=codebook)
         return pq
 
@@ -67,7 +66,6 @@ class Quantization(nn.Module):
         return quantized_vecs
 
     def quantization(self, vecs):
-        vecs = self.rotate_vec(vecs)
         assign = self.code_selection(vecs)
         quantized_vecs = self.quantized_vecs(assign)
         return quantized_vecs
@@ -76,6 +74,6 @@ class Quantization(nn.Module):
         return torch.mean(torch.sum((vec - quantized_vecs) ** 2, dim=-1))
 
     def save(self, save_path):
-        if self.rotate:
-            np.save(os.path.join(save_path, 'rotate_matrix'), self.rotate.cpu().numpy())
-        np.save(os.path.join(save_path, 'codebook'), self.codebook.cpu().numpy())
+        if self.rotate is not None:
+            np.save(os.path.join(save_path, 'rotate_matrix'), self.rotate.detach().cpu().numpy())
+        np.save(os.path.join(save_path, 'codebook'), self.codebook.detach().cpu().numpy())
