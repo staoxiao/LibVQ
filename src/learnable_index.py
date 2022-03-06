@@ -108,7 +108,7 @@ class LearnableIndex(FaissIndex):
             warmup_steps: int = 1000,
             optimizer_class: Type[Optimizer] = AdamW,
             lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr':1e-4, 'ivf_lr':1e-3},
-            loss_weight: Dict[str, float] = {'encoder_weight': 1.0, 'pq_weight': 9e-3, 'ivf_weight': 1.0},
+            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
             weight_decay: float = 0.01,
             max_grad_norm: float = -1,
             show_progress_bar: bool = True,
@@ -166,7 +166,7 @@ class LearnableIndex(FaissIndex):
             warmup_steps_ratio: float = 0.1,
             optimizer_class: Type[Optimizer] = AdamW,
             lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr':1e-4, 'ivf_lr':1e-3},
-            loss_weight: Dict[str, float] = {'encoder_weight': 1.0, 'pq_weight': 9e-3, 'ivf_weight': 1.0},
+            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
             weight_decay: float = 0.01,
             max_grad_norm: float = -1,
             show_progress_bar: bool = True,
@@ -239,6 +239,9 @@ class LearnableIndex(FaissIndex):
                     sample = {k:v.to(device) if isinstance(v, torch.Tensor) else v for k,v in sample.items()}
 
                     batch_dense_loss, batch_ivf_loss, batch_pq_loss = model(**sample)
+                    if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
+                        loss_weight['ivf_weight'] = (batch_pq_loss/(batch_ivf_loss+1e-6)).detach().float().item()
+                        logging.info(f"ivf_weight = {loss_weight['ivf_weight']}")
                     batch_loss = loss_weight['encoder_weight'] * batch_dense_loss + \
                                  loss_weight['pq_weight'] * batch_pq_loss + \
                                  loss_weight['ivf_weight'] * batch_ivf_loss
@@ -324,10 +327,13 @@ def main():
     #                     query_embeddings_file='./data/passage/evaluate/AR_G_0/train-query.memmap',
     #                     doc_embeddings_file='./data/passage/evaluate/AR_G_0/passages.memmap',
     #                     checkpoint_path='./saved_ckpts/try',
-    #                     per_device_train_batch_size=100,
-    #                     logging_steps=1)
+    #                     per_device_train_batch_size=256,
+    #                     logging_steps=100,
+    #                     loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+    #                                                       'ivf_weight': 6e-3},
+    # )
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
+    # os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
     learnable_index.fit_with_multi_gpus(data_dir=args.preprocess_dir,
                                         max_query_length=32,
                                         max_doc_length=128,
@@ -335,7 +341,10 @@ def main():
                                         doc_embeddings_file = './data/passage/evaluate/AR_G_0/passages.memmap',
                                         checkpoint_path='./saved_ckpts/try',
                                         per_device_train_batch_size=256,
-                                        epochs=10)
+                                        epochs=20,
+                                        loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                                                          'ivf_weight': 6e-3}
+    )
 
     learnable_index.update_encoder('./saved_ckpts/try/epoch_0_step_393/encoder.bin')
     learnable_index.encode(data_dir=args.preprocess_dir,

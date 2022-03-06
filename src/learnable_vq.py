@@ -60,7 +60,7 @@ class LearnableVQ(nn.Module):
                 origin_q_emb, origin_d_emb, origin_n_emb,
                 doc_ids, neg_ids,
                 temperature=1.0,
-                loss_method='contras',
+                loss_method='distill',
                 fix_emb='doc'):
 
         if 'query' in fix_emb:
