@@ -1,11 +1,18 @@
 # MSMARCO Ranking
 
-
-## Data Download and Preprocess
+## Preparing Data
+Dataload data:
 ```
 bash download_data.sh
+```
+Then convert and preprocess them to the format which is need for our class `DatasetForVQ`: 
+```
+python convert_data_format.py
 python preprocess.py
 ```
+ or you can rewrite the `torch.nn.utils.Dataset` for your data.
+
+##### *TODO: upload our neg.json and models (huggingface website)*
 
 ## Faiss Index
 Generate the embeddings of query and doc
@@ -19,9 +26,11 @@ python ./inference.py \
 --max_doc_length 256 --max_query_length 32 \
 --eval_batch_size 8192 \
 --ckpt_path ./saved_ckpts/${savename}/${epoch}/ \
---output_dir  evaluate/${savename}_${epoch} 
+--output_dir  evaluate/${savename}_${epoch} \
+--mode train
 ```
 
+Creat Faiss index:
 ```
 data_type=passage
 savename=AR_G
@@ -37,15 +46,14 @@ python ./src/index/FaissIndex.py \
 --topk 1000 \
 --data_type ${data_type} \
 --rel_file ./data/${data_type}/preprocess/dev-qrel.tsv \
---nprobe 100
+--nprobe 1
 ```
 
 ## Learnable Index
 
 ```
 data_type=passage
-python ./src/learnable_index.py \
+python ./LibVQ/learnable_index.py \
 --data_type ${data_type} \
---preprocess_dir ./data/${data_type}/preprocess/ \
-
+--preprocess_dir ./data/${data_type}/preprocess/ 
 ```

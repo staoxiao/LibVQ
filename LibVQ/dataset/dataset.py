@@ -161,7 +161,7 @@ class TokensCache:
         return self.total_number
     
     def __getitem__(self, item):
-        tokens = list(self.tokens_memmap[item, :self.lengths_memmap[item]])
+        tokens = self.tokens_memmap[item, :self.lengths_memmap[item]].tolist()
         seq_length = min(self.max_length - 1, len(tokens) - 1)
         input_ids = [tokens[0]] + tokens[1:seq_length] + [tokens[-1]]
         return input_ids
@@ -176,7 +176,7 @@ class DatasetForEncoding(Dataset):
         return len(self.tokens_cache)
 
     def __getitem__(self, item):
-        input_ids = self.tokens_cache[item].tolist()
+        input_ids = self.tokens_cache[item]
         input_ids = input_ids + [0]*(self.max_length - len(input_ids))
         attention_mask = [1]*len(input_ids) + [0]*(self.max_length - len(input_ids))
         return torch.LongTensor(input_ids), torch.LongTensor(attention_mask)

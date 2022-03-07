@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./src')
+sys.path.append('./LibVQ')
 import os
 import logging
 from tqdm.autonotebook import trange
@@ -86,6 +86,7 @@ class LearnableIndex(FaissIndex):
             self.index.add(doc_embeddings)
 
     def encode(self, data_dir, prefix, max_length, output_dir, batch_size, is_query):
+        os.makedirs(output_dir, exist_ok=True)
         inference(data_dir=data_dir,
                   is_query=is_query,
                   encoder=self.learnable_vq.encoder,
@@ -274,7 +275,8 @@ class LearnableIndex(FaissIndex):
                     if global_step % logging_steps == 0:
                         step_num = logging_steps
                         logging.info(
-                            '[{}] step:{}, train_loss: {:.5f} = {:.5f} + {:.5f} + {:.5f}'.
+                            '[{}] step:{}, train_loss: {:.5f} = '
+                            'dense:{:.5f} + ivf:{:.5f} + pq:{:.5f}'.
                             format(local_rank,
                                    global_step,
                                    loss / step_num,
@@ -288,10 +290,12 @@ class LearnableIndex(FaissIndex):
                             ckpt_path = os.path.join(checkpoint_path, f'epoch_{epoch}_step_{global_step}')
                             Path(ckpt_path).mkdir(parents=True, exist_ok=True)
                             model.module.save(ckpt_path)
+                            logging.info(f"model saved to {ckpt_path}")
                 if local_rank == 0 or local_rank == -1:
                     ckpt_path = os.path.join(checkpoint_path, f'epoch_{epoch}_step_{global_step}')
                     Path(ckpt_path).mkdir(parents=True, exist_ok=True)
                     model.module.save(ckpt_path)
+                    logging.info(f"model saved to {ckpt_path}")
         except:
             error_type, error_value, error_trace = sys.exc_info()
             traceback.print_tb(error_trace)
@@ -334,17 +338,17 @@ def main():
     # )
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
-    learnable_index.fit_with_multi_gpus(data_dir=args.preprocess_dir,
-                                        max_query_length=32,
-                                        max_doc_length=128,
-                                        query_embeddings_file = './data/passage/evaluate/AR_G_0/train-query.memmap',
-                                        doc_embeddings_file = './data/passage/evaluate/AR_G_0/passages.memmap',
-                                        checkpoint_path='./saved_ckpts/try',
-                                        per_device_train_batch_size=256,
-                                        epochs=20,
-                                        loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                                                          'ivf_weight': 6e-3}
-    )
+    # learnable_index.fit_with_multi_gpus(data_dir=args.preprocess_dir,
+    #                                     max_query_length=32,
+    #                                     max_doc_length=128,
+    #                                     query_embeddings_file = './data/passage/evaluate/AR_G_0/train-query.memmap',
+    #                                     doc_embeddings_file = './data/passage/evaluate/AR_G_0/passages.memmap',
+    #                                     checkpoint_path='./saved_ckpts/try',
+    #                                     per_device_train_batch_size=256,
+    #                                     epochs=1,
+    #                                     loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+    #                                                                       'ivf_weight': 0.012}
+    # )
 
     learnable_index.update_encoder('./saved_ckpts/try/epoch_0_step_393/encoder.bin')
     learnable_index.encode(data_dir=args.preprocess_dir,
@@ -366,7 +370,7 @@ def main():
 
     qids = list(range(len(query_embeddings)))
     learnable_index.test(query_embeddings, qids, ground_truths, topk=100, batch_size=64,
-               MRR_cutoffs=args.MRR_cutoffs, Recall_cutoffs=args.Recall_cutoffs)
+               MRR_cutoffs=[10, 100], Recall_cutoffs=[5, 10, 30, 50, 100])
 
 
 if __name__ == '__main__':

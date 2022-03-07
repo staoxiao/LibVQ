@@ -60,7 +60,7 @@ class LearnableVQ(nn.Module):
                 origin_q_emb, origin_d_emb, origin_n_emb,
                 doc_ids, neg_ids,
                 temperature=1.0,
-                loss_method='distill',
+                loss_method='contras',
                 fix_emb='doc'):
 
         if 'query' in fix_emb:
@@ -88,6 +88,11 @@ class LearnableVQ(nn.Module):
         dense_score = self.compute_score(rotate_query_vecs, rotate_doc_vecs, rotate_neg_vecs, temperature)
         ivf_score = self.compute_score(rotate_query_vecs, dc_emb, nc_emb, temperature)
         pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
+
+        # print('origin score', origin_score)
+        # print('dense_score', dense_score)
+        # print('ivf_score', ivf_score)
+        # print('pq_score', pq_score)
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score, loss_method=loss_method)
         return dense_loss, ivf_loss, pq_loss

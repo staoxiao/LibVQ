@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('./src')
+sys.path.append('./LibVQ')
 
 import argparse
 import logging
@@ -33,6 +33,7 @@ def inference_dataset(encoder, dataset, is_query, output_file, batch_size, datap
         drop_last=False,
     )
 
+    encoder = encoder.cuda()
     if dataparallel:
         encoder = torch.nn.DataParallel(encoder)
     encoder.eval()
