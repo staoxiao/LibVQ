@@ -1,4 +1,3 @@
-
 class BaseIndex():
     def fit(self):
         raise NotImplementedError

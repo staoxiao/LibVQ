@@ -1,7 +1,7 @@
-mkdir data
-mkdir data/passage
-mkdir data/passage/dataset
-cd data/passage/dataset
+mkdir raw_data
+mkdir raw_data/passage
+mkdir raw_data/passage/dataset
+cd raw_data/passage/dataset
 
 # download MSMARCO passage data
 wget https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz
@@ -14,9 +14,9 @@ wget https://trec.nist.gov/data/deep/2019qrels-pass.txt
 
 
 cd ../../../
-mkdir data/doc
-mkdir data/doc/dataset
-cd data/doc/dataset
+mkdir raw_data/doc
+mkdir raw_data/doc/dataset
+cd raw_data/doc/dataset
 
 # download MSMARCO doc data
 wget https://msmarco.blob.core.windows.net/msmarcoranking/msmarco-docs.tsv.gz

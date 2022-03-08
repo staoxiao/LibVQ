@@ -1,6 +1,11 @@
 import torch
 from torch import nn
 from transformers import AutoModel
+from transformers import AutoConfig
+
+class EncoderConfig(AutoConfig):
+    def __init__(self):
+        super(EncoderConfig).__init__()
 
 class Encoder(nn.Module):
     def __init__(self, config):
@@ -43,9 +48,6 @@ class Encoder(nn.Module):
 
     def save(self, save_file):
         torch.save(self.state_dict(), save_file)
-
-
-
 
 
 

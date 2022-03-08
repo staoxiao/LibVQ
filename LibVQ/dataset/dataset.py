@@ -21,8 +21,8 @@ class DatasetForVQ(Dataset):
                  doc_embeddings_file=None,
                  query_embeddings_file=None):
         self.query2pos = load_rel(rel_file)
-        self.query_dataset = TokensCache(data_dir=data_dir, prefix="train-query", max_length=max_query_length)
-        self.doc_dataset = TokensCache(data_dir=data_dir, prefix="passages", max_length=max_doc_length)
+        self.query_dataset = TokensCache(data_dir=data_dir, prefix="train-queries", max_length=max_query_length)
+        self.doc_dataset = TokensCache(data_dir=data_dir, prefix="docs", max_length=max_doc_length)
         self.docs_list = list(range(len(self.doc_dataset)))
         self.query_list = list(self.query2pos.keys())
 
@@ -177,27 +177,20 @@ class DatasetForEncoding(Dataset):
 
     def __getitem__(self, item):
         input_ids = self.tokens_cache[item]
-        input_ids = input_ids + [0]*(self.max_length - len(input_ids))
+
         attention_mask = [1]*len(input_ids) + [0]*(self.max_length - len(input_ids))
+        input_ids = input_ids + [0]*(self.max_length - len(input_ids))
+
         return torch.LongTensor(input_ids), torch.LongTensor(attention_mask)
 
 
 def load_rel(rel_path):
     reldict = defaultdict(set)
     for line in tqdm(open(rel_path), desc=os.path.split(rel_path)[1]):
-        qid, _, pid, _ = line.split()
+        qid, pid = line.split()[:2]
         qid, pid = int(qid), int(pid)
         reldict[qid].add(pid)
     return reldict
-
-
-def load_rank(rank_path):
-    rankdict = defaultdict(list)
-    for line in tqdm(open(rank_path), desc=os.path.split(rank_path)[1]):
-        qid, pid, _ = line.split()
-        qid, pid = int(qid), int(pid)
-        rankdict[qid].append(pid)
-    return dict(rankdict)
 
 
 

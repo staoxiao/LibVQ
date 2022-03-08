@@ -1,7 +1,3 @@
-import sys
-
-sys.path.append('./LibVQ')
-
 import argparse
 import logging
 import os
@@ -13,8 +9,8 @@ from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SequentialSampler
 
-from models.encoder import Encoder
-from dataset.dataset import DatasetForEncoding
+from LibVQ.models.encoder import Encoder
+from LibVQ.dataset.dataset import DatasetForEncoding
 
 logger = logging.Logger(__name__)
 
@@ -52,7 +48,7 @@ def inference_dataset(encoder, dataset, is_query, output_file, batch_size, datap
         write_index += write_size
 
     open(output_file + '_finished.flag', 'w')
-
+    assert write_index == len(output_memmap)
 
 def inference(data_dir,
               is_query,
@@ -69,53 +65,4 @@ def inference(data_dir,
                       output_file=os.path.join(output_dir, f"{prefix}.memmap"),
                       batch_size=batch_size,
                       dataparallel=True)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_type", choices=["passage", 'doc'], type=str, required=True)
-    parser.add_argument("--preprocess_dir", type=str, required=True)
-    parser.add_argument("--max_query_length", type=int, default=32)
-    parser.add_argument("--max_doc_length", type=int, default=512)
-    parser.add_argument("--eval_batch_size", type=int, default=256)
-    parser.add_argument("--mode", type=str, choices=["train", "dev", "test", "test2019", "test2020"], default='dev')
-    parser.add_argument("--ckpt_path", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, required=True, default='evaluate/')
-    parser.add_argument("--root_output_dir", type=str, required=False, default='./data')
-    parser.add_argument("--gpu_rank", type=str, required=False, default=None)
-
-    args = parser.parse_args()
-
-    if args.gpu_rank is not None:
-        gpus = ','.join(args.gpu_rank.split('_'))
-        os.environ["CUDA_VISIBLE_DEVICES"] = gpus
-    args.n_gpu = torch.cuda.device_count()
-
-    print(f'------------------------use dataset: {args.preprocess_dir}------------------------')
-    args.output_dir = os.path.join(f"{args.root_output_dir}/{args.data_type}/", args.output_dir)
-    os.makedirs(args.output_dir, exist_ok=True)
-    config = AutoConfig.from_pretrained(os.path.join(args.ckpt_path, 'config.json'))
-    model = Encoder(config)
-    model.load_state_dict(torch.load(os.path.join(args.ckpt_path, 'encoder.bin')))
-    model = model.cuda()
-
-    inference(data_dir=args.preprocess_dir,
-              is_query=True,
-              encoder=model,
-              prefix=f'{args.mode}-query',
-              max_length=args.max_query_length,
-              output_dir=args.output_dir,
-              batch_size=args.batch_size)
-
-    inference(data_dir=args.preprocess_dir,
-              is_query=False,
-              encoder=model,
-              prefix=f'passages',
-              max_length=args.max_doclength,
-              output_dir=args.output_dir,
-              batch_size=args.batch_size)
-
-
-if __name__ == "__main__":
-    main()
 

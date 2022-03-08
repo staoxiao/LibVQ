@@ -1,5 +1,4 @@
 import sys
-sys.path.append('./src')
 import os
 import torch
 import faiss
@@ -10,14 +9,9 @@ import math
 from tqdm import tqdm
 import json
 import time
-from dataset.dataset import load_rel
-from index.BaseIndex import BaseIndex
 
-logger = logging.Logger(__name__, level=logging.INFO)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s- %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+from LibVQ.dataset.dataset import load_rel
+from LibVQ.index.BaseIndex import BaseIndex
 
 
 class FaissIndex(BaseIndex):
@@ -99,82 +93,4 @@ class FaissIndex(BaseIndex):
 
     def get_ivf_listnum(self):
         pass
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_type", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--gpu_search", action='store_true')
-
-    parser.add_argument("--index_method", type=str, required=True)
-    parser.add_argument("--subvector_num", type=int, default=64)
-    parser.add_argument("--subvector_bits", type=int, default=8)
-    parser.add_argument("--ivf_centers", type=int, default=10000)
-    parser.add_argument("--dist_mode", type=str, required=True)
-    parser.add_argument("--emb_size", type=int, required=True)
-
-    parser.add_argument("--topk", type=int, default=1000)
-    parser.add_argument("--nprobe", type=int, default=100)
-    parser.add_argument("--mode", type=str, default='dev')
-    parser.add_argument("--save_hardneg_to_json", action='store_true')
-
-    parser.add_argument("--doc_file", type=str, default=None)
-    parser.add_argument("--query_file", type=str, default=None)
-    parser.add_argument("--init_index_path", type=str, default=None)
-    parser.add_argument("--rel_file", type=str, default=None)
-
-    parser.add_argument("--MRR_cutoffs", type=int, nargs='+', default=[10, 100])
-    parser.add_argument("--Recall_cutoffs", type=int, nargs='+', default=[5, 10, 30, 50, 100])
-
-    args = parser.parse_args()
-    logger.info(args)
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    if args.doc_file is None:
-        args.doc_embed_path = os.path.join(args.output_dir, "passages.memmap")
-    else:
-        args.doc_embed_path = args.doc_file
-    if args.query_file is None:
-        args.query_embed_path = os.path.join(args.output_dir, f"{args.mode}-query.memmap")
-    else:
-        args.query_embed_path = args.query_file
-
-    doc_embeddings = np.memmap(args.doc_embed_path,
-        dtype=np.float32, mode="r")
-    doc_embeddings = doc_embeddings.reshape(-1, args.emb_size)
-
-    query_embeddings = np.memmap(args.query_embed_path,
-                                 dtype=np.float32, mode="r")
-    query_embeddings = query_embeddings.reshape(-1, args.emb_size)
-
-    faiss.omp_set_num_threads(32)
-    index = FaissIndex(index_method=args.index_method,
-                       emb_size=args.emb_size,
-                       ivf_centers=args.ivf_centers,
-                       subvector_num=args.subvector_num,
-                       subvector_bits=args.subvector_bits,
-                       dist_mode=args.dist_mode)
-    # index.fit(doc_embeddings)
-    # index.add(doc_embeddings)
-    index.load_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
-
-    # index.save_index(os.path.join(args.output_dir, f'{args.index_method}.index'))
-    index.set_nprobe(args.nprobe)
-
-    ground_truths = load_rel(args.rel_file)
-    if args.mode != 'train':
-        qids = list(range(len(query_embeddings)))
-        index.test(query_embeddings, qids, ground_truths, topk=args.topk, batch_size=64,
-                   MRR_cutoffs=args.MRR_cutoffs, Recall_cutoffs=args.Recall_cutoffs)
-
-    if args.save_hardneg_to_json:
-        score, search_results = index.search(query_embeddings, topk=1000, batch_size=64)
-        neg_dict = {}
-        for qid, neighbors in enumerate(search_results):
-            neg = list(filter(lambda x: x not in ground_truths[qid], neighbors))
-            neg_dict[qid] = neg
-        json.dump(neg_dict, open(os.path.join(args.output_dir, f"{args.mode}_hardneg.json"), 'w'))
-
-if __name__ == "__main__":
-    main()
 

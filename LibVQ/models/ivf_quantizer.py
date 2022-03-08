@@ -1,10 +1,9 @@
 import torch
 from torch import nn
 import faiss
-import torch.distributed as dist
 import numpy as np
 
-from utils import dist_gather_tensor
+from LibVQ.utils import dist_gather_tensor
 
 class IVF_CPU(nn.Module):
     def __init__(self, center_vecs, id2center):

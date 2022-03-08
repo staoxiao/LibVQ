@@ -1,14 +1,11 @@
-import sys
-sys.path.append('./')
-
 import os
 import torch
 from torch import nn
 import torch.nn.functional as F
 
-from models.encoder import Encoder
-from models.ivf_quantizer import IVF_CPU
-from models.pq_quantizer import Quantization
+from LibVQ.models.encoder import Encoder
+from LibVQ.models.ivf_quantizer import IVF_CPU
+from LibVQ.models.pq_quantizer import Quantization
 
 
 class LearnableVQ(nn.Module):

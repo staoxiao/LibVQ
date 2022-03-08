@@ -1,5 +1,4 @@
 import sys
-sys.path.append('./LibVQ')
 import os
 import logging
 from tqdm.autonotebook import trange
@@ -18,13 +17,13 @@ from torch.utils.data import RandomSampler, DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
 
-from models.encoder import Encoder
-from learnable_vq import LearnableVQ
-from index.FaissIndex import FaissIndex
-from dataset.dataset import DatasetForVQ, DataCollatorForVQ
-from dataset.dataset import load_rel
-from inference import inference
-from utils import setup_worker, setuplogging
+from LibVQ.models.encoder import Encoder
+from LibVQ.learnable_vq import LearnableVQ
+from LibVQ.index.FaissIndex import FaissIndex
+from LibVQ.dataset.dataset import DatasetForVQ, DataCollatorForVQ
+from LibVQ.dataset.dataset import load_rel
+from LibVQ.inference import inference
+from LibVQ.utils import setup_worker, setuplogging
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
@@ -54,9 +53,10 @@ class LearnableIndex(FaissIndex):
         self.learnable_vq.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
 
     def update_index_with_ckpt(self, ckpt_path, doc_embeddings=None):
-        if os.path.exists(os.path.join(ckpt_path, 'ivf_centers')):
-            logging.info(f"loading ivf centers from {os.path.join(ckpt_path, 'ivf_centers')}")
-            center_vecs = np.load(os.path.join(ckpt_path, 'ivf_centers'))
+        ivf_file = os.path.join(ckpt_path, 'ivf_centers.npy')
+        if os.path.exists(ivf_file):
+            logging.info(f"loading ivf centers from {ivf_file}")
+            center_vecs = np.load(ivf_file)
 
             if isinstance(self.index, faiss.IndexPreTransform):
                 ivf_index = faiss.downcast_index(self.index.index)
@@ -68,9 +68,10 @@ class LearnableIndex(FaissIndex):
                 center_vecs.ravel(),
                 coarse_quantizer.xb)
 
-        if os.path.exists(os.path.join(ckpt_path, 'codebook')):
-            logging.info(f"loading codebook from {os.path.join(ckpt_path, 'codebook')}")
-            codebook = np.load(os.path.join(ckpt_path, 'codebook'))
+        codebook_file = os.path.join(ckpt_path, 'codebook.npy')
+        if os.path.exists(codebook_file):
+            logging.info(f"loading codebook from {codebook_file}")
+            codebook = np.load(codebook_file)
 
             if isinstance(self.index, faiss.IndexPreTransform):
                 ivf_index = faiss.downcast_index(self.index.index)
@@ -181,7 +182,7 @@ class LearnableIndex(FaissIndex):
                 dataset = DatasetForVQ(data_dir=data_dir,
                                        max_query_length=max_query_length,
                                        max_doc_length=max_doc_length,
-                                       rel_file=os.path.join(data_dir, 'train-qrel.tsv'),
+                                       rel_file=os.path.join(data_dir, 'train-rels.tsv'),
                                        per_query_neg_num=per_query_neg_num,
                                        neg_file=neg_file,
                                        doc_embeddings_file=doc_embeddings_file,
@@ -300,79 +301,4 @@ class LearnableIndex(FaissIndex):
             error_type, error_value, error_trace = sys.exc_info()
             traceback.print_tb(error_trace)
             logging.info(error_value)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_type", choices=["passage", 'doc'], type=str, required=True)
-    parser.add_argument("--preprocess_dir", type=str, required=True)
-    parser.add_argument("--max_query_length", type=int, default=32)
-    parser.add_argument("--max_doc_length", type=int, default=512)
-    parser.add_argument("--eval_batch_size", type=int, default=256)
-    parser.add_argument("--mode", type=str, choices=["train", "dev", "test", "test2019","test2020"], default='dev')
-    parser.add_argument("--root_output_dir", type=str, required=False, default='./data')
-    parser.add_argument("--gpu_rank", type=str, required=False, default=None)
-
-    parser.add_argument("--rank_file", type=str, required=False, default=None)
-    parser.add_argument("--mink", type=int, required=False, default=0)
-    parser.add_argument("--maxk", type=int, required=False, default=200)
-    parser.add_argument("--per_query_neg_num", type=int, required=False, default=1)
-    parser.add_argument("--per_device_train_batch_size", type=int, required=False, default=128)
-
-    args = parser.parse_args()
-
-    learnable_index = LearnableIndex(trained_encoder_ckpt='./saved_ckpts/AR_G/0/',
-                                     index_file='./data/passage/evaluate/AR_G_0/ivf_opq.index')
-
-    # learnable_index.fit(model=learnable_index.learnable_vq,
-    #                     data_dir=args.preprocess_dir,
-    #                     max_query_length=32,
-    #                     max_doc_length=128,
-    #                     query_embeddings_file='./data/passage/evaluate/AR_G_0/train-query.memmap',
-    #                     doc_embeddings_file='./data/passage/evaluate/AR_G_0/passages.memmap',
-    #                     checkpoint_path='./saved_ckpts/try',
-    #                     per_device_train_batch_size=256,
-    #                     logging_steps=100,
-    #                     loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-    #                                                       'ivf_weight': 6e-3},
-    # )
-
-    # os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
-    # learnable_index.fit_with_multi_gpus(data_dir=args.preprocess_dir,
-    #                                     max_query_length=32,
-    #                                     max_doc_length=128,
-    #                                     query_embeddings_file = './data/passage/evaluate/AR_G_0/train-query.memmap',
-    #                                     doc_embeddings_file = './data/passage/evaluate/AR_G_0/passages.memmap',
-    #                                     checkpoint_path='./saved_ckpts/try',
-    #                                     per_device_train_batch_size=256,
-    #                                     epochs=1,
-    #                                     loss_weight = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-    #                                                                       'ivf_weight': 0.012}
-    # )
-
-    learnable_index.update_encoder('./saved_ckpts/try/epoch_0_step_393/encoder.bin')
-    learnable_index.encode(data_dir=args.preprocess_dir,
-                           prefix='dev-query',
-                           max_length=32,
-                           output_dir='./data/passage/evaluate/try_epoch_0_step_393',
-                           batch_size=8196,
-                           is_query=True)
-    ground_truths = load_rel(os.path.join(args.preprocess_dir, 'train-qrel.tsv'))
-
-    query_embeddings = np.memmap('./data/passage/evaluate/try_epoch_0_step_393/dev-query.memmap', dtype=np.float32, mode="r")
-    query_embeddings = query_embeddings.reshape(-1, 768)
-
-    doc_embeddings = np.memmap('./data/passage/evaluate/AR_G_0/passages.memmap', dtype=np.float32, mode="r")
-    doc_embeddings = doc_embeddings.reshape(-1, 768)
-
-    learnable_index.update_index_with_ckpt(ckpt_path='./saved_ckpts/try/epoch_0_step_393/', doc_embeddings=doc_embeddings)
-    learnable_index.set_nprobe(100)
-
-    qids = list(range(len(query_embeddings)))
-    learnable_index.test(query_embeddings, qids, ground_truths, topk=100, batch_size=64,
-               MRR_cutoffs=[10, 100], Recall_cutoffs=[5, 10, 30, 50, 100])
-
-
-if __name__ == '__main__':
-    main()
 

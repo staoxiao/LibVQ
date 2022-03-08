@@ -7,33 +7,32 @@ import argparse
 import json
 from tqdm import tqdm
 from transformers import AutoTokenizer
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
 
-def preprocess(input_data_dir: str,
-                out_data_dir: str,
-max_seq_length: int,
-tokenizer_name: str,
-threads_num: int,
-
-
-
-
-               ):
-
+def preprocess(input_data_dir, out_data_dir):
     pid2offset = {}
-    input_doc_path = os.path.join(input_data_dir, "collection.tsv")
-    out_doc_path = os.path.join(out_data_dir, "docs")
+    in_passage_path = os.path.join(
+        input_data_dir,
+        "collection.tsv")
+    out_passage_path = os.path.join(
+        out_data_dir,
+        "doc",
+    )
 
+    if os.path.exists(out_passage_path):
+        print("preprocessed data already exist, exit preprocessing")
+        return
+
+    print('start passage file split processing')
     splits_dir_lst, all_linecnt = multi_file_process(
-        tokenizer_name, threads_num, input_doc_path,
-        out_doc_path, DocPreprocessingFn,
-        max_seq_length
+        args, args.threads, in_passage_path,
+        out_passage_path, PassagePreprocessingFn,
+        args.max_seq_length
     )
 
     token_ids_array = np.memmap(
-        out_doc_path + ".memmap",
-        shape=(all_linecnt, max_seq_length), mode='w+', dtype=np.int32)
+        out_passage_path + ".memmap",
+        shape=(all_linecnt, args.max_seq_length), mode='w+', dtype=np.int32)
     token_length_array = []
 
     idx = 0
@@ -94,73 +93,6 @@ threads_num: int,
         "dev-qrel.tsv")
 
 
-def multi_file_process(tokenizer_name, num_process, in_path, out_path, line_fn, max_length):
-    output_linecnt = subprocess.check_output(["wc", "-l", in_path]).decode("utf-8")
-    print("line cnt", output_linecnt)
-    all_linecnt = int(output_linecnt.split()[0])
-    run_arguments = []
-    for i in range(num_process):
-        begin_idx = round(all_linecnt * i / num_process)
-        end_idx = round(all_linecnt * (i + 1) / num_process)
-        output_dir = f"{out_path}_split_{i}"
-        run_arguments.append((
-            tokenizer_name, in_path, output_dir, line_fn,
-            max_length, begin_idx, end_idx
-        ))
-    pool = multiprocessing.Pool(processes=num_process)
-    pool.starmap(tokenize_to_file, run_arguments)
-    pool.close()
-    pool.join()
-    splits_dir = [a[2] for a in run_arguments]
-    return splits_dir, all_linecnt
-
-def tokenize_to_file(tokenizer_name, in_path, output_dir, line_fn, max_length, begin_idx, end_idx):
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, do_lower_case=True)
-    os.makedirs(output_dir, exist_ok=True)
-    data_cnt = end_idx - begin_idx
-
-    token_ids_array = np.memmap(
-        os.path.join(output_dir, "token_ids.memmap"),
-        shape=(data_cnt, max_length), mode='w+', dtype=np.int32)
-    token_length_array = np.memmap(
-        os.path.join(output_dir, "lengths.memmap"),
-        shape=(data_cnt,), mode='w+', dtype=np.int32)
-
-    pbar = tqdm(total=end_idx - begin_idx, desc=f"Tokenizing")
-    for idx, line in enumerate(open(in_path, 'r')):
-        if idx < begin_idx:
-            continue
-        if idx >= end_idx:
-            break
-        qid_or_pid, token_ids, length = line_fn(line, tokenizer, max_length)
-        write_idx = idx - begin_idx
-        token_ids_array[write_idx, :] = token_ids
-        token_length_array[write_idx] = length
-        pbar.update(1)
-    pbar.close()
-    assert write_idx == data_cnt - 1
-
-
-
-def DocPreprocessingFn(line, tokenizer, max_seq_length, max_doc_character=None):
-    if max_doc_character is None:
-        max_doc_character = max_seq_length * 10
-
-    line_arr = line.strip('\n').split('\t')
-    p_id = int(line_arr[0])
-    full_text = "[SEP]".join(line_arr[1:])
-    full_text = full_text[:max_doc_character]
-
-    passage = tokenizer.encode(
-        full_text,
-        add_special_tokens=True,
-        max_length=max_seq_length,
-        truncation=True
-    )
-
-    passage_len = min(len(passage), max_seq_length)
-    input_id_b = pad_input_ids(passage, max_seq_length)
-    return p_id, input_id_b, passage_len
 
 
 def pad_input_ids(input_ids, max_length,
@@ -176,12 +108,62 @@ def pad_input_ids(input_ids, max_length,
             input_ids = padding_id + input_ids
         else:
             input_ids = input_ids + padding_id
+
     return input_ids
 
 
+def tokenize_to_file(args, in_path, output_dir, line_fn, max_length, begin_idx, end_idx):
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name_or_path, do_lower_case=True)
+    os.makedirs(output_dir, exist_ok=True)
+    data_cnt = end_idx - begin_idx
+    ids_array = np.memmap(
+        os.path.join(output_dir, "ids.memmap"),
+        shape=(data_cnt,), mode='w+', dtype=np.int32)
+    token_ids_array = np.memmap(
+        os.path.join(output_dir, "token_ids.memmap"),
+        shape=(data_cnt, max_length), mode='w+', dtype=np.int32)
+    token_length_array = np.memmap(
+        os.path.join(output_dir, "lengths.memmap"),
+        shape=(data_cnt,), mode='w+', dtype=np.int32)
+    pbar = tqdm(total=end_idx - begin_idx, desc=f"Tokenizing")
+    ids_dict = []
+    for idx, line in enumerate(open(in_path, 'r')):
+        if idx < begin_idx:
+            continue
+        if idx >= end_idx:
+            break
+        qid_or_pid, token_ids, length = line_fn(args, line, tokenizer)
+        write_idx = idx - begin_idx
+        ids_array[write_idx] = qid_or_pid
+        token_ids_array[write_idx, :] = token_ids
+        token_length_array[write_idx] = length
+        pbar.update(1)
+    pbar.close()
+    assert write_idx == data_cnt - 1
+
+    print(begin_idx, end_idx, write_idx, data_cnt)
 
 
-
+def multi_file_process(args, num_process, in_path, out_path, line_fn, max_length):
+    output_linecnt = subprocess.check_output(["wc", "-l", in_path]).decode("utf-8")
+    print("line cnt", output_linecnt)
+    all_linecnt = int(output_linecnt.split()[0])
+    run_arguments = []
+    for i in range(num_process):
+        begin_idx = round(all_linecnt * i / num_process)
+        end_idx = round(all_linecnt * (i + 1) / num_process)
+        output_dir = f"{out_path}_split_{i}"
+        run_arguments.append((
+            args, in_path, output_dir, line_fn,
+            max_length, begin_idx, end_idx
+        ))
+    pool = multiprocessing.Pool(processes=num_process)
+    pool.starmap(tokenize_to_file, run_arguments)
+    pool.close()
+    pool.join()
+    splits_dir = [a[2] for a in run_arguments]
+    return splits_dir, all_linecnt
 
 
 def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_file, out_query_file,
@@ -281,6 +263,25 @@ def write_query_rel(args, pid2offset, qid2offset_file, query_file, positive_id_f
         print("Total lines written: " + str(out_line_count))
 
 
+
+
+def PassagePreprocessingFn(args, line, tokenizer):
+    line_arr = line.strip('\n').split('\t')
+    p_id = int(line_arr[0])  # remove "D"
+    full_text = "[SEP]".join(line_arr[1:])
+    full_text = full_text[:args.max_doc_character]
+
+    passage = tokenizer.encode(
+        full_text,
+        add_special_tokens=True,
+        max_length=args.max_seq_length,
+        truncation=True
+    )
+
+    passage_len = min(len(passage), args.max_seq_length)
+    input_id_b = pad_input_ids(passage, args.max_seq_length)
+
+    return p_id, input_id_b, passage_len
 
 
 def QueryPreprocessingFn(args, line, tokenizer):
