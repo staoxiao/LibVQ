@@ -10,7 +10,6 @@ bash download_data.sh
 Then convert and preprocess them to the format which is need for our dataset class: 
 ```
 python convert_data_format.py
-python preprocess.py 
 ```
  or you can rewrite the `torch.nn.utils.Dataset` for your data.
 
@@ -18,6 +17,7 @@ python preprocess.py
 ##### *TODO: upload our neg.json and models (huggingface website)*
 
 ## Faiss Index and Learnable Index
+Download our trained [encoder]().
 ```
 python ivfopq.py
 ```

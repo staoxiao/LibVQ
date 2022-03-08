@@ -1,11 +1,5 @@
 # LibVQ
 
-## Requirements
-```
-torch==1.7
-transformers==4.6
-faiss-gpu==1.6.4.post2
-```
 
 Install
 ```
