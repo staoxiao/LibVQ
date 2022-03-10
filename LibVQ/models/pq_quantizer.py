@@ -6,17 +6,17 @@ import numpy as np
 import os
 
 class Quantization(nn.Module):
-    def __init__(self, embedding_size=768, partition=96, centroids=256, rotate=None, codebook=None):
+    def __init__(self, emb_size=768, subvector_num=96, subvector_bits=8, rotate=None, codebook=None):
         super(Quantization, self).__init__()
 
-        self.partition = partition
+        self.subvector_num = subvector_num
 
         if codebook is not None:
             self.codebook = nn.Parameter(torch.FloatTensor(codebook), requires_grad=True)
         else:
             self.codebook = nn.Parameter(
-                torch.empty(partition, centroids,
-                            embedding_size // partition).uniform_(-0.1, 0.1)).type(
+                torch.empty(subvector_num, 2**subvector_bits,
+                            emb_size // subvector_num).uniform_(-0.1, 0.1)).type(
                 torch.FloatTensor)
 
         if rotate is not None:
@@ -35,9 +35,9 @@ class Quantization(nn.Module):
         ivf_index = faiss.downcast_index(opq_index.index)
         centroid_embeds = faiss.vector_to_array(ivf_index.pq.centroids)
         codebook = centroid_embeds.reshape(ivf_index.pq.M, ivf_index.pq.ksub, ivf_index.pq.dsub)
-        partition = ivf_index.pq.M
+        subvector_num = ivf_index.pq.M
 
-        pq = cls(partition=partition, rotate=rotate, codebook=codebook)
+        pq = cls(subvector_num=subvector_num, rotate=rotate, codebook=codebook)
         return pq
 
     def rotate_vec(self, vecs):
@@ -46,7 +46,7 @@ class Quantization(nn.Module):
         return torch.matmul(vecs, self.rotate.T)
 
     def code_selection(self, vecs):
-        vecs = vecs.view(vecs.size(0), self.partition, -1)
+        vecs = vecs.view(vecs.size(0), self.subvector_num, -1)
         codebook = self.codebook.unsqueeze(0).expand(vecs.size(0), -1, -1, -1)
         proba = - torch.sum((vecs.unsqueeze(-2) - codebook) ** 2, -1)
         assign = F.softmax(proba, -1)

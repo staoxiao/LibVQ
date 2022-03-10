@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 from transformers import AutoTokenizer
 
 tokenizer = None
-max_seq_length = 512
+max_seq_length = None
 
 def count_line(path: str):
     return sum(1 for _ in open(path))
@@ -30,6 +30,8 @@ class MpTokenizer:
     def __call__(self,
                  input_file: str,
                  output_file: str,
+                 max_length: int,
+                 tokenizer_name: str,
                  func,
                  workers_num=None,
                  initializer=None,
@@ -37,13 +39,19 @@ class MpTokenizer:
         total_line_num = count_line(input_file)
         self._set_total(total_line_num)
 
+        global max_seq_length
+        max_seq_length = max_length
+
+        global tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+
         id2offset = {}
-        token_array = np.memmap(output_file + ".memmap", shape=(total_line_num, max_seq_length), mode='w+', dtype=np.int32)
+        token_array = np.memmap(output_file + ".memmap", shape=(total_line_num, max_seq_length), mode='w+',
+                                dtype=np.int32)
         token_length_array = []
 
         dataset = data_generator(input_file)
         with mp.Pool(workers_num, initializer=initializer, initargs=initargs) as pool:
-            # pool.apply_async(count_line, (input_file,), callback=self._set_total)
             with tqdm(pool.imap(func, dataset)) as pbar:
                 for res in pbar:
                     id, tokens, tokens_num = res
@@ -76,24 +84,24 @@ def job(line):
     )
     tokens_num = len(tokens)
 
-    tokens = tokens + [0]*(max_seq_length - tokens_num)
+    tokens = tokens + [0] * (max_seq_length - tokens_num)
     return id, tokens, tokens_num
 
 
-def init(tokenizer_name, max_length):
-    global tokenizer
-    global max_seq_length
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    max_seq_length = max_length
-
+def init():
+    return
 
 def tokenize_data(input_file: str,
                   output_file: str,
                   tokenizer_name: str,
                   max_length: int,
                   workers_num: int = None):
-    id2offset = MpTokenizer()(input_file, output_file, job, workers_num=workers_num, initializer=init,
-             initargs=(tokenizer_name, max_length, ))
+    id2offset = MpTokenizer()(input_file,
+                              output_file,
+                              max_length,
+                              tokenizer_name,
+                              job,
+                              workers_num=workers_num)
     return id2offset
 
 def offset_rel(rel_file: str,
@@ -104,7 +112,7 @@ def offset_rel(rel_file: str,
         for line in open(rel_file):
             qid, did = line.strip('\n').split('\t')
             new_qid, new_did = qid2offset[int(qid)], did2offset[int(did)]
-            f.write(str(new_qid)+'\t'+new_did+'\n')
+            f.write(str(new_qid)+'\t'+str(new_did)+'\n')
 
 def preprocess_data(data_dir: str,
                     output_dir: str,

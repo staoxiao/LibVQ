@@ -36,7 +36,7 @@ def setup_worker(rank, world_size):
     np.random.seed(42)
     random.seed(42)
 
-def dist_gather_tensor(vecs, world_size, local_rank=0, detach=False):
+def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
     all_tensors = [torch.empty_like(vecs) for _ in range(world_size)]
     dist.all_gather(all_tensors, vecs)
     if not detach:

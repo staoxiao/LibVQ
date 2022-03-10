@@ -1,90 +1,105 @@
-import sys
-import os
-import logging
-from tqdm.autonotebook import trange
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
-from pathlib import Path
-import faiss
-import numpy as np
 import argparse
-import traceback
-
+import faiss
+import logging
+import numpy as np
+import os
+import sys
 import torch
-from torch.optim import Optimizer
 import torch.multiprocessing as mp
-from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data import RandomSampler, DataLoader
+import traceback
+from pathlib import Path
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.optim import Optimizer
+from torch.utils.data import RandomSampler, DataLoader
+from torch.utils.data.distributed import DistributedSampler
+from tqdm.autonotebook import trange
 from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
+from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
-from LibVQ.models.encoder import Encoder
-from LibVQ.learnable_vq import LearnableVQ
-from LibVQ.index.FaissIndex import FaissIndex
+from LibVQ.baseindex import FaissIndex
+from LibVQ.baseindex import IndexConfig
 from LibVQ.dataset.dataset import DatasetForVQ, DataCollatorForVQ
-from LibVQ.dataset.dataset import load_rel
 from LibVQ.inference import inference
-from LibVQ.utils import setup_worker, setuplogging
+from LibVQ.learnable_vq import LearnableVQ
+from LibVQ.models import Encoder
+from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
+
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
-                 pretrained_model_for_encoder: str = 'bert-base-uncased',
-                 trained_encoder_ckpt: str = None,
-                 use_two_encoder: bool = True,
-                 sentence_pooling_method: str = 'first',
-                 index_file : str = None
+                 encoder: Type[Encoder] = None,
+                 config: Type[IndexConfig] = None,
+                 index_file: str = None
                  ):
         super(LearnableIndex).__init__()
-        if trained_encoder_ckpt is not None:
-            config = AutoConfig.from_pretrained(os.path.join(trained_encoder_ckpt, 'config.json'))
-            encoder = Encoder(config)
-            encoder.load_state_dict(torch.load(os.path.join(trained_encoder_ckpt, 'encoder.bin'), map_location='cpu'))
-        else:
-            config = AutoConfig.from_pretrained(pretrained_model_for_encoder)
-            config.pretrained_model_name = pretrained_model_for_encoder
-            config.use_two_encoder = use_two_encoder
-            config.sentence_pooling_method = sentence_pooling_method
-            encoder = None
-        config.index_file = index_file
 
-        self.learnable_vq = LearnableVQ(config, encoder=encoder)
-        self.index = faiss.read_index(config.index_file)
+        self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=index_file)
+        self.index = faiss.read_index(index_file)
 
-    def update_encoder(self, encoder_file):
+    def update_encoder(self, encoder_file=None, saved_ckpts_path=None, ):
+        if encoder_file is None:
+            assert saved_ckpts_path is not None
+            ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
+            encoder_file = os.path.join(ckpt_path, 'encoder.bin')
+
         self.learnable_vq.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
 
-    def update_index_with_ckpt(self, ckpt_path, doc_embeddings=None):
+    def update_ivf(self, center_vecs):
+        if isinstance(self.index, faiss.IndexPreTransform):
+            ivf_index = faiss.downcast_index(self.index.index)
+            coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
+        else:
+            coarse_quantizer = faiss.downcast_index(self.index.quantizer)
+
+        faiss.copy_array_to_vector(
+            center_vecs.ravel(),
+            coarse_quantizer.xb)
+
+    def update_pq(self, codebook, doc_embeddings):
+        if isinstance(self.index, faiss.IndexPreTransform):
+            ivf_index = faiss.downcast_index(self.index.index)
+            faiss.copy_array_to_vector(
+                codebook.ravel(),
+                ivf_index.pq.centroids)
+        else:
+            faiss.copy_array_to_vector(
+                codebook.ravel(),
+                self.index.pq.centroids)
+
+        self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
+        self.index.add(doc_embeddings)
+
+    def update_index_with_ckpt(self, ckpt_path=None, saved_ckpts_path=None, doc_embeddings=None):
+        if ckpt_path is None:
+            assert saved_ckpts_path is not None
+            ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
+
         ivf_file = os.path.join(ckpt_path, 'ivf_centers.npy')
         if os.path.exists(ivf_file):
+            print(ivf_file)
             logging.info(f"loading ivf centers from {ivf_file}")
             center_vecs = np.load(ivf_file)
-
-            if isinstance(self.index, faiss.IndexPreTransform):
-                ivf_index = faiss.downcast_index(self.index.index)
-                coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
-            else:
-                coarse_quantizer = faiss.downcast_index(self.index.quantizer)
-
-            faiss.copy_array_to_vector(
-                center_vecs.ravel(),
-                coarse_quantizer.xb)
+            self.update_ivf(center_vecs)
 
         codebook_file = os.path.join(ckpt_path, 'codebook.npy')
         if os.path.exists(codebook_file):
+            print(codebook_file)
             logging.info(f"loading codebook from {codebook_file}")
             codebook = np.load(codebook_file)
+            self.update_pq(codebook=codebook, doc_embeddings=doc_embeddings)
 
-            if isinstance(self.index, faiss.IndexPreTransform):
-                ivf_index = faiss.downcast_index(self.index.index)
-                faiss.copy_array_to_vector(
-                    codebook.ravel(),
-                    ivf_index.pq.centroids)
-            else:
-                faiss.copy_array_to_vector(
-                    codebook.ravel(),
-                    self.index.pq.centroids)
+    def get_latest_ckpt(self, saved_ckpts_path):
+        if len(os.listdir(saved_ckpts_path)) == 0: raise IOError(f"There is no ckpt in path: {saved_ckpts_path}")
 
-            self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
-            self.index.add(doc_embeddings)
+        latest_epoch, latest_step = 0, 0
+        for ckpt in os.listdir(saved_ckpts_path):
+            name = ckpt.split('_')
+            epoch, step = int(name[1]), int(name[3])
+            if epoch > latest_epoch:
+                latest_epoch, latest_step = epoch, step
+            elif epoch == latest_epoch:
+                latest_step = max(latest_step, step)
+        return os.path.join(saved_ckpts_path, f"epoch_{latest_epoch}_step_{latest_step}")
 
     def encode(self, data_dir, prefix, max_length, output_dir, batch_size, is_query):
         os.makedirs(output_dir, exist_ok=True)
@@ -98,8 +113,10 @@ class LearnableIndex(FaissIndex):
 
     def fit_with_multi_gpus(
             self,
-            data_dir: str = None,
-            max_query_length: int = None,
+            rel_file: str = None,
+            query_data_dir: str = None,
+            max_query_length: int = 32,
+            doc_data_dir: str = None,
             max_doc_length: int = None,
             epochs: int = 5,
             per_device_train_batch_size: int = 128,
@@ -107,10 +124,15 @@ class LearnableIndex(FaissIndex):
             neg_file: str = None,
             query_embeddings_file: str = None,
             doc_embeddings_file: str = None,
+            emb_size: int = None,
             warmup_steps: int = 1000,
             optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr':1e-4, 'ivf_lr':1e-3},
-            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
+            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                              'ivf_weight': 'scaled_to_pqloss'},
+            temperature: float = 1.0,
+            loss_method: str = 'distill',
+            fix_emb: str = 'doc',
             weight_decay: float = 0.01,
             max_grad_norm: float = -1,
             show_progress_bar: bool = True,
@@ -118,15 +140,17 @@ class LearnableIndex(FaissIndex):
             checkpoint_save_steps: int = None,
             logging_steps: int = 100,
             master_port: str = '12345'
-            ):
+    ):
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = master_port
         world_size = torch.cuda.device_count()
         mp.spawn(LearnableIndex.fit,
                  args=(self.learnable_vq,
                        None,
-                       data_dir,
+                       rel_file,
+                       query_data_dir,
                        max_query_length,
+                       doc_data_dir,
                        max_doc_length,
                        world_size,
                        epochs,
@@ -135,10 +159,14 @@ class LearnableIndex(FaissIndex):
                        neg_file,
                        query_embeddings_file,
                        doc_embeddings_file,
+                       emb_size,
                        warmup_steps,
                        optimizer_class,
                        lr_params,
                        loss_weight,
+                       temperature,
+                       loss_method,
+                       fix_emb,
                        weight_decay,
                        max_grad_norm,
                        show_progress_bar,
@@ -149,14 +177,15 @@ class LearnableIndex(FaissIndex):
                  nprocs=world_size,
                  join=True)
 
-
     @staticmethod
     def fit(
             local_rank: int = -1,
             model: Type[LearnableVQ] = None,
             dataset: Type[DatasetForVQ] = None,
-            data_dir: str = None,
-            max_query_length: int = None,
+            rel_file: str = None,
+            query_data_dir: str = None,
+            max_query_length: int = 32,
+            doc_data_dir: str = None,
             max_doc_length: int = None,
             world_size: int = 1,
             epochs: int = 5,
@@ -165,55 +194,62 @@ class LearnableIndex(FaissIndex):
             neg_file: str = None,
             query_embeddings_file: str = None,
             doc_embeddings_file: str = None,
+            emb_size: int = None,
             warmup_steps_ratio: float = 0.1,
             optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr':1e-4, 'ivf_lr':1e-3},
-            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
+            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                              'ivf_weight': 'scaled_to_pqloss'},
+            temperature: float = 1.0,
+            loss_method: str = 'distill',
+            fix_emb: str = 'doc',
             weight_decay: float = 0.01,
             max_grad_norm: float = -1,
             show_progress_bar: bool = True,
             checkpoint_path: str = None,
             checkpoint_save_steps: int = None,
             logging_steps: int = 100
-            ):
+    ):
         try:
             setuplogging()
             if dataset is None:
-                dataset = DatasetForVQ(data_dir=data_dir,
+                dataset = DatasetForVQ(rel_file=rel_file,
+                                       query_data_dir=query_data_dir,
+                                       doc_data_dir=doc_data_dir,
                                        max_query_length=max_query_length,
                                        max_doc_length=max_doc_length,
-                                       rel_file=os.path.join(data_dir, 'train-rels.tsv'),
                                        per_query_neg_num=per_query_neg_num,
                                        neg_file=neg_file,
                                        doc_embeddings_file=doc_embeddings_file,
-                                       query_embeddings_file=query_embeddings_file)
+                                       query_embeddings_file=query_embeddings_file,
+                                       emb_size=emb_size)
 
             if world_size > 1:
                 setup_worker(local_rank, world_size)
-                assert data_dir is not None
                 sampler = DistributedSampler(dataset=dataset)
             else:
                 sampler = RandomSampler(dataset)
             dataloader = DataLoader(dataset, sampler=sampler,
-                                batch_size=per_device_train_batch_size,
-                                collate_fn=DataCollatorForVQ())
+                                    batch_size=per_device_train_batch_size,
+                                    collate_fn=DataCollatorForVQ())
             device = torch.device("cuda" if torch.cuda.is_available() else 'cpu',
                                   local_rank if local_rank >= 0 else 0)
 
             model = model.to(device)
             if world_size > 1:
                 model = DDP(model,
-                                device_ids=[local_rank],
-                                output_device=local_rank,
-                                find_unused_parameters=True)
+                            device_ids=[local_rank],
+                            output_device=local_rank,
+                            find_unused_parameters=True)
 
             # Prepare optimizers
-            num_train_steps = len(dataloader)*epochs
+            num_train_steps = len(dataloader) * epochs
             param_optimizer = list(model.named_parameters())
             no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
             pq_parameter = ['rotate', 'codebook']
             optimizer_grouped_parameters = [
-                {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay) and n not in pq_parameter],
+                {'params': [p for n, p in param_optimizer if
+                            not any(nd in n for nd in no_decay) and n not in pq_parameter],
                  'weight_decay': weight_decay,
                  "lr": lr_params['encoder_lr']},
                 {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay) and n not in pq_parameter],
@@ -227,7 +263,7 @@ class LearnableIndex(FaissIndex):
             ]
             optimizer = optimizer_class(optimizer_grouped_parameters)
             scheduler = get_linear_schedule_with_warmup(
-                optimizer, num_warmup_steps=warmup_steps_ratio*num_train_steps, num_training_steps=num_train_steps
+                optimizer, num_warmup_steps=warmup_steps_ratio * num_train_steps, num_training_steps=num_train_steps
             )
 
             # train
@@ -238,12 +274,22 @@ class LearnableIndex(FaissIndex):
                 model.train()
 
                 for step, sample in enumerate(dataloader):
-                    sample = {k:v.to(device) if isinstance(v, torch.Tensor) else v for k,v in sample.items()}
+                    sample = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in sample.items()}
 
-                    batch_dense_loss, batch_ivf_loss, batch_pq_loss = model(**sample)
+                    batch_dense_loss, batch_ivf_loss, batch_pq_loss = model(temperature=temperature,
+                                                                            loss_method=loss_method,
+                                                                            fix_emb=fix_emb,
+                                                                            world_size=world_size,
+                                                                            **sample)
+
                     if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
-                        loss_weight['ivf_weight'] = (batch_pq_loss/(batch_ivf_loss+1e-6)).detach().float().item()
+                        weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
+                        if world_size > 1:
+                            weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
+                            weight = torch.mean(weight)
+                        loss_weight['ivf_weight'] = weight.detach().float().item()
                         logging.info(f"ivf_weight = {loss_weight['ivf_weight']}")
+
                     batch_loss = loss_weight['encoder_weight'] * batch_dense_loss + \
                                  loss_weight['pq_weight'] * batch_pq_loss + \
                                  loss_weight['ivf_weight'] * batch_ivf_loss
@@ -261,9 +307,11 @@ class LearnableIndex(FaissIndex):
 
                     optimizer.step()
                     if isinstance(model, DDP):
+                        model.module.ivf.grad_accumulate(world_size=world_size)
                         model.module.ivf.update_centers(lr=lr_params['ivf_lr'])
                     else:
-                        model.ivf.update_centers(lr=lr_params['ivf_lr'])
+                        model.ivf.grad_accumulate()
+                        model.ivf.update_centers(lr=lr_params['ivf_lr'], world_size=world_size)
 
                     scheduler.step()
                     optimizer.zero_grad()
@@ -278,12 +326,12 @@ class LearnableIndex(FaissIndex):
                         logging.info(
                             '[{}] step:{}, train_loss: {:.5f} = '
                             'dense:{:.5f} + ivf:{:.5f} + pq:{:.5f}'.
-                            format(local_rank,
-                                   global_step,
-                                   loss / step_num,
-                                   dense_loss / step_num,
-                                   ivf_loss / step_num,
-                                   pq_loss / step_num))
+                                format(local_rank,
+                                       global_step,
+                                       loss / step_num,
+                                       dense_loss / step_num,
+                                       ivf_loss / step_num,
+                                       pq_loss / step_num))
                         loss, dense_loss, ivf_loss, pq_loss = 0., 0., 0., 0.
 
                     if checkpoint_save_steps:
@@ -301,4 +349,3 @@ class LearnableIndex(FaissIndex):
             error_type, error_value, error_trace = sys.exc_info()
             traceback.print_tb(error_trace)
             logging.info(error_value)
-

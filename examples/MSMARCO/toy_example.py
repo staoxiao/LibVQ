@@ -12,16 +12,13 @@ from LibVQ.inference import inference
 from LibVQ.models.encoder import Encoder, EncoderConfig
 from LibVQ.dataset.dataset import load_rel
 from LibVQ.learnable_index import LearnableIndex
-from LibVQ.dataset.preprocess import preprocess_data
-
-from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 
 
 if __name__ == '__main__':
-    parser = HfArgumentParser((IndexArguments, DataArguments, ModelArguments, TrainingArguments))
-    index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
-
     ckpt_path = '../../saved_ckpts/AR_G/0'
+
+    'Luyu/co-condenser-marco-retriever'
+
     data_dir = './data/passage/preprocess_bert-base-uncased'
     output_dir = './data/passage/evaluate/AR_G_0'
     index_method = 'ivf_opq'

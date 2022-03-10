@@ -1,17 +1,13 @@
-import sys
 import os
-import torch
 import faiss
-import argparse
-import logging
 import numpy as np
 import math
 from tqdm import tqdm
 import json
 import time
+from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
-from LibVQ.dataset.dataset import load_rel
-from LibVQ.index.BaseIndex import BaseIndex
+from LibVQ.baseindex.BaseIndex import BaseIndex
 
 
 class FaissIndex(BaseIndex):
@@ -56,10 +52,11 @@ class FaissIndex(BaseIndex):
     def save_index(self, index_file):
         faiss.write_index(self.index, index_file)
 
-    def CPU_to_GPU(self, gpu_index):
+    def CPU_to_GPU(self, gpu_index=0):
         res = faiss.StandardGpuResources()
-        res.setTempMemory(1024 * 1024 * 1024)
+        res.noTempMemory()
         co = faiss.GpuClonerOptions()
+        co.useFloat16 = True
         self.index = faiss.index_cpu_to_gpu(res, gpu_index, self.index, co)
 
     def GPU_to_CPU(self):
@@ -91,6 +88,8 @@ class FaissIndex(BaseIndex):
         print(f'number of query:{len(query_embeddings)},  searching time per query: {search_time / len(query_embeddings)}')
         return all_scores, all_search_results
 
-    def get_ivf_listnum(self):
-        pass
 
+    def test(self, query_embeddings, qids, ground_truths, topk, batch_size, MRR_cutoffs, Recall_cutoffs):
+        assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
+        scores, retrieve_results = self.search(query_embeddings, topk, batch_size)
+        return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)

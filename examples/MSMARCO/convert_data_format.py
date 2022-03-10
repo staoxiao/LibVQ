@@ -8,7 +8,7 @@ if __name__ == '__main__':
     os.makedirs(output_dir, exist_ok=True)
 
     # collection.tsv
-    collection_file = os.path.join(raw_data_dir, 'collection.tsv') if data_type == 'passage' else os.path.join(raw_data_dir, 'msmarco-docs.tsv')
+    collection_file = os.path.join(raw_data_dir, 'collection_with_title.tsv') if data_type == 'passage' else os.path.join(raw_data_dir, 'msmarco-docs.tsv')
     output_collection_file = open(os.path.join(output_dir, 'collection.tsv'), 'w', encoding='utf-8')
     for line in open(collection_file, 'r', encoding='utf-8'):
         if data_type == 'passage':

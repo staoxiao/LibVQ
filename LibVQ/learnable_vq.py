@@ -1,29 +1,40 @@
 import os
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+import torch.distributed as dist
+from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
-from LibVQ.models.encoder import Encoder
-from LibVQ.models.ivf_quantizer import IVF_CPU
-from LibVQ.models.pq_quantizer import Quantization
-
+from LibVQ.baseindex import IndexConfig
+from LibVQ.models import Encoder
+from LibVQ.models import IVF_CPU
+from LibVQ.models import Quantization
+from LibVQ.utils import dist_gather_tensor
 
 class LearnableVQ(nn.Module):
-    def __init__(self, config, encoder=None):
+    def __init__(self,
+                 config: Type[IndexConfig] = None,
+                 index_file: str = None,
+                 encoder=None):
         nn.Module.__init__(self)
         self.config = config
-        if encoder is not None:
-            self.encoder = encoder
+        self.encoder = encoder
+        if index_file is not None:
+            self.pq = Quantization.from_faiss_index(index_file)
+            self.ivf = IVF_CPU.from_faiss_index(index_file)
         else:
-            self.encoder = Encoder(config)
-        self.pq = Quantization.from_faiss_index(config.index_file)
-        self.ivf = IVF_CPU.from_faiss_index(config.index_file)
+            self.pq = Quantization(emb_size=config.emb_size,
+                                   subvector_num=config.subvector_num,
+                                   subvector_bits=config.subvector_bits)
+            self.ivf = None
 
     def compute_score(self, query_vecs, doc_vecs, neg_vecs, temperature=1.0):
+        if any(v is None for v in (query_vecs, doc_vecs, neg_vecs)): return None
+
         score = torch.matmul(query_vecs, doc_vecs.T)
         n_score = torch.matmul(query_vecs, neg_vecs.T)
         score = torch.cat([score, n_score], dim=-1)
-        return score/temperature
+        return score / temperature
 
     def contras_loss(self, score):
         labels = torch.arange(start=0, end=score.shape[0],
@@ -51,14 +62,21 @@ class LearnableVQ(nn.Module):
         return dense_loss, ivf_loss, pq_loss
 
     def forward(self,
-                query_token_ids, query_attention_mask,
-                doc_token_ids, doc_attention_mask,
-                neg_token_ids, neg_attention_mask,
-                origin_q_emb, origin_d_emb, origin_n_emb,
-                doc_ids, neg_ids,
-                temperature=1.0,
-                loss_method='contras',
-                fix_emb='doc'):
+                query_token_ids: torch.LongTensor,
+                query_attention_mask: torch.LongTensor,
+                doc_token_ids: torch.LongTensor,
+                doc_attention_mask: torch.LongTensor,
+                neg_token_ids: torch.LongTensor,
+                neg_attention_mask: torch.LongTensor,
+                origin_q_emb: torch.FloatTensor,
+                origin_d_emb: torch.FloatTensor,
+                origin_n_emb: torch.FloatTensor,
+                doc_ids, neg_ids: List[int],
+                temperature: float = 1.0,
+                loss_method: str = 'distill',
+                fix_emb: str = 'doc',
+                world_size: int = 1,
+                cross_device_sample: bool = True):
 
         if 'query' in fix_emb:
             query_vecs = origin_q_emb
@@ -74,28 +92,45 @@ class LearnableVQ(nn.Module):
         rotate_doc_vecs = self.pq.rotate_vec(doc_vecs)
         rotate_neg_vecs = self.pq.rotate_vec(neg_vecs)
 
-        dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device)
+        dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device, world_size=world_size)
 
         residual_doc_vecs = rotate_doc_vecs - dc_emb
         residual_neg_vecs = rotate_neg_vecs - nc_emb
         quantized_doc = self.pq.quantization(residual_doc_vecs)
         quantized_neg = self.pq.quantization(residual_neg_vecs)
 
+        if world_size > 1 and cross_device_sample:
+            origin_q_emb = self.dist_gather_tensor(origin_q_emb)
+            origin_d_emb = self.dist_gather_tensor(origin_d_emb)
+            origin_n_emb = self.dist_gather_tensor(origin_n_emb)
+
+            rotate_query_vecs = self.dist_gather_tensor(rotate_query_vecs)
+            rotate_doc_vecs = self.dist_gather_tensor(rotate_doc_vecs)
+            rotate_neg_vecs = self.dist_gather_tensor(rotate_neg_vecs)
+
+            dc_emb = self.dist_gather_tensor(dc_emb)
+            nc_emb = self.dist_gather_tensor(nc_emb)
+
+            quantized_doc = self.dist_gather_tensor(quantized_doc)
+            quantized_neg = self.dist_gather_tensor(quantized_neg)
+
         origin_score = self.compute_score(origin_q_emb, origin_d_emb, origin_n_emb, temperature)
         dense_score = self.compute_score(rotate_query_vecs, rotate_doc_vecs, rotate_neg_vecs, temperature)
         ivf_score = self.compute_score(rotate_query_vecs, dc_emb, nc_emb, temperature)
         pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
 
-        # print('origin score', origin_score)
-        # print('dense_score', dense_score)
-        # print('ivf_score', ivf_score)
-        # print('pq_score', pq_score)
-
-        dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score, loss_method=loss_method)
+        dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score,
+                                                          loss_method=loss_method)
         return dense_loss, ivf_loss, pq_loss
+
+    def dist_gather_tensor(self, vecs):
+        if vecs is None:
+            return vecs
+        return dist_gather_tensor(vecs, world_size=dist.get_world_size(), local_rank=dist.get_rank(), detach=False)
 
     def save(self, save_path):
         self.encoder.save(os.path.join(save_path, 'encoder.bin'))
         self.ivf.save(os.path.join(save_path, 'ivf_centers'))
         self.pq.save(save_path)
-        self.config.to_json_file(os.path.join(save_path, 'config.json'))
+        if self.config is not None:
+            self.config.to_json_file(os.path.join(save_path, 'config.json'))

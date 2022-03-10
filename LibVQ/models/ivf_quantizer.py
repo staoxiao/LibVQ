@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import faiss
 import numpy as np
+import torch.distributed as dist
 
 from LibVQ.utils import dist_gather_tensor
 
@@ -39,11 +40,19 @@ class IVF_CPU(nn.Module):
         self.batch_center_vecs = torch.FloatTensor(c_embs).to(device)
         self.batch_center_vecs.requires_grad = True
 
-    def merge_and_dispatch(self, doc_ids, neg_ids):
+    def merge_and_dispatch(self, doc_ids, neg_ids, world_size):
         dc_ids = [self.id2center[i] for i in doc_ids]
         nc_ids = [self.id2center[i] for i in neg_ids]
-        batch_cids = sorted(list(set(dc_ids+nc_ids)))
 
+        if world_size > 1:
+            all_dc_ids = dist_gather_tensor(torch.LongTensor(dc_ids).cuda(), world_size=world_size, detach=True)
+            all_dc_ids = list(all_dc_ids.detach().cpu().numpy())
+            all_nc_ids = dist_gather_tensor(torch.LongTensor(nc_ids).cuda(), world_size=world_size, detach=True)
+            all_nc_ids = list(all_nc_ids.detach().cpu().numpy())
+        else:
+            all_dc_ids, all_nc_ids = dc_ids, nc_ids
+
+        batch_cids = sorted(list(set(all_dc_ids+all_nc_ids)))
         cid2bid = {}
         for i, c in enumerate(batch_cids):
             cid2bid[c] = i
@@ -52,8 +61,8 @@ class IVF_CPU(nn.Module):
         batch_nc_ids = torch.LongTensor([cid2bid[x] for x in nc_ids])
         return batch_cids, batch_dc_ids, batch_nc_ids
 
-    def select_centers(self, doc_ids, neg_ids, device):
-        batch_cids, batch_dc_ids, batch_nc_ids = self.merge_and_dispatch(doc_ids, neg_ids)
+    def select_centers(self, doc_ids, neg_ids, device, world_size):
+        batch_cids, batch_dc_ids, batch_nc_ids = self.merge_and_dispatch(doc_ids, neg_ids, world_size=world_size)
 
         self.get_batch_centers(batch_cids, device)
         batch_dc_ids, batch_nc_ids = batch_dc_ids.to(device), batch_nc_ids.to(device)
@@ -61,12 +70,16 @@ class IVF_CPU(nn.Module):
         nc_emb = self.batch_center_vecs.index_select(dim=0, index=batch_nc_ids)
         return dc_emb, nc_emb
 
-    def update_centers(self, lr):
-        grad = self.batch_center_vecs.grad
-        # grad = dist_gather_tensor(grad.unsqueeze(0), dist.get_world_size(), detach=True)
-        # grad = torch.mean(grad, dim=0)
-        self.center_grad[self.batch_centers_index] += grad.detach().cpu().numpy()
+    def grad_accumulate(self, world_size):
+        if world_size > 1:
+            grad = dist_gather_tensor(self.batch_center_vecs.grad.unsqueeze(0), world_size=world_size, detach=True)
+            grad = torch.mean(grad, dim = 0).detach().cpu().numpy()
+        else:
+            grad = self.batch_center_vecs.grad.detach().cpu().numpy()
 
+        self.center_grad[self.batch_centers_index] += grad
+
+    def update_centers(self, lr: float):
         self.center_vecs = self.center_vecs - lr * self.center_grad
 
     def zero_grad(self):

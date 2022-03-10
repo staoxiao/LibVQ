@@ -1,30 +1,36 @@
-import os
 import json
 import logging
 import numpy as np
-from tqdm import tqdm
+import os
+import pickle
 import random
+import torch
 from collections import defaultdict
 from torch.utils.data import Dataset
+from tqdm import tqdm
 from typing import List
-import torch
-logger = logging.getLogger(__name__)
+
 
 class DatasetForVQ(Dataset):
     def __init__(self,
-                 data_dir,
-                 max_query_length,
-                 max_doc_length,
-                 rel_file,
-                 per_query_neg_num,
-                 neg_file=None,
-                 doc_embeddings_file=None,
-                 query_embeddings_file=None):
+                 rel_file: str,
+                 query_data_dir: str = None,
+                 max_query_length: int = 32,
+                 doc_data_dir: str = None,
+                 max_doc_length: int = 256,
+                 per_query_neg_num: int = 1,
+                 neg_file: str = None,
+                 doc_embeddings_file: str = None,
+                 query_embeddings_file: str = None,
+                 emb_size: int = 768):
         self.query2pos = load_rel(rel_file)
-        self.query_dataset = TokensCache(data_dir=data_dir, prefix="train-queries", max_length=max_query_length)
-        self.doc_dataset = TokensCache(data_dir=data_dir, prefix="docs", max_length=max_doc_length)
-        self.docs_list = list(range(len(self.doc_dataset)))
-        self.query_list = list(self.query2pos.keys())
+
+        self.query_dataset, self.doc_dataset = None, None
+        if query_data_dir is not None:
+            self.query_dataset = TokensCache(data_dir=query_data_dir, prefix="train-queries",
+                                             max_length=max_query_length)
+        if doc_data_dir is not None:
+            self.doc_dataset = TokensCache(data_dir=doc_data_dir, prefix="docs", max_length=max_doc_length)
 
         if neg_file is not None:
             self.query2neg = self.get_query2neg_from_file(neg_file)
@@ -36,12 +42,20 @@ class DatasetForVQ(Dataset):
         self.query_length = max_query_length
         self.doc_length = max_doc_length
 
-        self.doc_embeddings = self.init_embedding(doc_embeddings_file, emb_num=len(self.doc_dataset))
-        self.query_embeddings = self.init_embedding(query_embeddings_file, emb_num=len(self.query_dataset))
+        self.doc_embeddings = self.init_embedding(doc_embeddings_file, emb_size=emb_size)
+        self.query_embeddings = self.init_embedding(query_embeddings_file, emb_size=emb_size)
+
+        self.docs_list = list(range(len(self.doc_embeddings)))
+        self.query_list = list(self.query2pos.keys())
 
     def get_query2neg_from_file(self, neg_file):
-        query2neg = json.load(open(neg_file))
-        return query2neg
+        query2neg = pickle.load(open(neg_file, 'rb'))
+        print('top200 as neg---------------------------------')
+
+        new_query2neg = {}
+        for q, ns in query2neg.items():
+            new_query2neg[q] = ns[:200]
+        return new_query2neg
 
     def random_negative_sample(self, queries):
         query2neg = {}
@@ -50,10 +64,10 @@ class DatasetForVQ(Dataset):
             query2neg[q] = set(neg)
         return query2neg
 
-    def init_embedding(self, emb_file, emb_num):
+    def init_embedding(self, emb_file, emb_size):
         if emb_file is not None:
             embeddings = np.memmap(emb_file, dtype=np.float32, mode="r")
-            return embeddings.reshape(emb_num, -1)
+            return embeddings.reshape(-1, emb_size)
         else:
             return None
 
@@ -62,9 +76,12 @@ class DatasetForVQ(Dataset):
         pos = random.sample(self.query2pos[query], 1)[0]
         negs = random.sample(self.query2neg[query], self.per_query_neg_num)
 
-        query_tokens = torch.LongTensor(self.query_dataset[query])
-        pos_tokens = torch.LongTensor(self.doc_dataset[pos])
-        negs_tokens = [torch.LongTensor(self.doc_dataset[n]) for n in negs]
+        query_tokens, pos_tokens, negs_tokens = None, None, None
+        if self.query_dataset is not None:
+            query_tokens = torch.LongTensor(self.query_dataset[query])
+        if self.doc_dataset is not None:
+            pos_tokens = torch.LongTensor(self.doc_dataset[pos])
+            negs_tokens = [torch.LongTensor(self.doc_dataset[n]) for n in negs]
 
         q_emb, d_emb, n_emb = None, None, None
         if self.doc_embeddings is not None:
@@ -88,12 +105,15 @@ class DataCollatorForVQ():
         doc_ids, neg_ids = [], []
 
         for query_tokens, pos_tokens, negs_tokens, q_emb, d_emb, n_emb, pos, negs in examples:
-            query_token_ids.append(query_tokens)
-            query_attention_mask.append(torch.tensor([1] * len(query_tokens)))
-            doc_token_ids.append(torch.LongTensor(pos_tokens))
-            doc_attention_mask.append(torch.tensor([1] * len(pos_tokens)))
-            neg_token_ids.extend(negs_tokens)
-            neg_attention_mask.extend([torch.tensor([1] * len(x)) for x in negs_tokens])
+            if query_tokens is not None:
+                query_token_ids.append(query_tokens)
+                query_attention_mask.append(torch.tensor([1] * len(query_tokens)))
+
+            if pos_tokens is not None and negs_tokens is not None:
+                doc_token_ids.append(pos_tokens)
+                doc_attention_mask.append(torch.tensor([1] * len(pos_tokens)))
+                neg_token_ids.extend(negs_tokens)
+                neg_attention_mask.extend([torch.tensor([1] * len(x)) for x in negs_tokens])
 
             origin_q_emb.append(q_emb)
             origin_d_emb.append(d_emb)
@@ -102,17 +122,23 @@ class DataCollatorForVQ():
             doc_ids.append(pos)
             neg_ids.extend(negs)
 
-        query_token_ids = tensorize_batch(query_token_ids, 0)
-        query_attention_mask = tensorize_batch(query_attention_mask, 0)
-        doc_token_ids = tensorize_batch(doc_token_ids, 0)
-        doc_attention_mask = tensorize_batch(doc_attention_mask, 0)
-        neg_token_ids = tensorize_batch(neg_token_ids, 0)
-        neg_attention_mask = tensorize_batch(neg_attention_mask, 0)
+        if len(query_token_ids) > 0:
+            query_token_ids = tensorize_batch(query_token_ids, 0)
+            query_attention_mask = tensorize_batch(query_attention_mask, 0)
+        else:
+            query_token_ids, query_attention_mask = None, None
+
+        if len(doc_token_ids) > 0 and len(neg_token_ids) > 0:
+            doc_token_ids = tensorize_batch(doc_token_ids, 0)
+            doc_attention_mask = tensorize_batch(doc_attention_mask, 0)
+            neg_token_ids = tensorize_batch(neg_token_ids, 0)
+            neg_attention_mask = tensorize_batch(neg_attention_mask, 0)
+        else:
+            doc_token_ids, doc_attention_mask, neg_token_ids, neg_attention_mask = None, None, None, None
 
         origin_q_emb = torch.FloatTensor(origin_q_emb) if origin_q_emb[0] is not None else None
         origin_d_emb = torch.FloatTensor(origin_d_emb) if origin_d_emb[0] is not None else None
         origin_n_emb = torch.FloatTensor(origin_n_emb) if origin_n_emb[0] is not None else None
-
 
         batch = {
             "query_token_ids": query_token_ids,
@@ -125,7 +151,7 @@ class DataCollatorForVQ():
             "origin_d_emb": origin_d_emb,
             "origin_n_emb": origin_n_emb,
             "doc_ids": doc_ids,
-            "neg_ids":neg_ids
+            "neg_ids": neg_ids
         }
         return batch
 
@@ -147,19 +173,19 @@ class TokensCache:
     def __init__(self, data_dir, prefix, max_length):
         meta = json.load(open(f"{data_dir}/{prefix}_meta"))
         self.total_number = meta['total_number']
-        self.max_seq_len = meta['embedding_size']
+        self.max_seq_len = meta['max_seq_length']
 
         self.tokens_memmap = np.memmap(f"{data_dir}/{prefix}.memmap",
-            shape=(self.total_number, self.max_seq_len),
-            dtype=np.dtype(meta['type']), mode="r")
+                                       shape=(self.total_number, self.max_seq_len),
+                                       dtype=np.dtype(meta['type']), mode="r")
         self.lengths_memmap = np.load(f"{data_dir}/{prefix}_length.npy")
 
         assert len(self.lengths_memmap) == self.total_number
         self.max_length = max_length
-        
+
     def __len__(self):
         return self.total_number
-    
+
     def __getitem__(self, item):
         tokens = self.tokens_memmap[item, :self.lengths_memmap[item]].tolist()
         seq_length = min(self.max_length - 1, len(tokens) - 1)
@@ -178,22 +204,23 @@ class DatasetForEncoding(Dataset):
     def __getitem__(self, item):
         input_ids = self.tokens_cache[item]
 
-        attention_mask = [1]*len(input_ids) + [0]*(self.max_length - len(input_ids))
-        input_ids = input_ids + [0]*(self.max_length - len(input_ids))
+        attention_mask = [1] * len(input_ids) + [0] * (self.max_length - len(input_ids))
+        input_ids = input_ids + [0] * (self.max_length - len(input_ids))
 
         return torch.LongTensor(input_ids), torch.LongTensor(attention_mask)
 
 
-def load_rel(rel_path):
+def load_rel(rel_file):
     reldict = defaultdict(set)
-    for line in tqdm(open(rel_path), desc=os.path.split(rel_path)[1]):
+    for line in tqdm(open(rel_file), desc=os.path.split(rel_file)[1]):
         qid, pid = line.split()[:2]
         qid, pid = int(qid), int(pid)
         reldict[qid].add(pid)
     return reldict
 
 
-
-
-
-
+def write_rel(rel_file, reldict):
+    with open(rel_file, 'w', encoding='utf-8') as f:
+        for q, ds in reldict.items():
+            for d in ds:
+                f.write(str(q) + '\t' + str(d) + '\n')

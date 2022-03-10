@@ -2,14 +2,11 @@ import argparse
 import logging
 import os
 import numpy as np
-
 import torch
-from transformers import AutoConfig
 from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SequentialSampler
 
-from LibVQ.models.encoder import Encoder
 from LibVQ.dataset.dataset import DatasetForEncoding
 
 logger = logging.Logger(__name__)

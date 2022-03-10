@@ -1,5 +1,5 @@
 # Dataset
-
+To use our dataset module, you should organize the data in the following format:
 ## Data Format
 - collection.tsv  
 `doc_id \t text_1 \t text_2,... \n`  
@@ -27,16 +27,20 @@ For example:
 ```
 
 ## Preprocess
-```python
 
+```python
+from LibVQ.dataset.preprocess import preprocess_data
+preprocess_data(data_dir={path to dataset},
+                output_dir={path to preprocess_dir},
+                tokenizer_name='bert-base-uncased',
+                max_doc_length=32,
+                max_query_length=256,
+                workers_num=64)
 
 ```
+The above code will preprocess the data in `data_dir` and save the results to `output_dir`.
+It will tokenize the docs and queries, and save the tokens and the number of tokens 
+into `xx.memmap` and `xx_length.npy`, respectively.
+Besides, the docs and queries will be assgned to a new id, and a new rel file will be generated.
 
 
-
-
-## DataLoader
-```python
-
-
-```

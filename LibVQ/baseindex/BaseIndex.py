@@ -1,3 +1,29 @@
+import json
+
+class IndexConfig():
+    def __init__(self,
+                 index_method: str ='ivfopq',
+                 emb_size: int = 768,
+                 ivf_centers: int = 10000,
+                 subvector_num: int = 32,
+                 subvector_bits: int = 8,
+                 nprobe: int = 100,
+                 dist_mode: str = 'ip',
+                 **kwargs):
+        self.index_method = index_method
+        self.emb_size = emb_size
+        self.ivf_centers = ivf_centers
+        self.subvector_num = subvector_num
+        self.subvector_bits = subvector_bits
+        self.nprobe = nprobe
+        self.dist_mode = dist_mode
+
+    @classmethod
+    def from_config_json(cls, config_josn):
+        config_dict = json.load(open(config_josn, 'r'))
+        return cls(**config_dict)
+
+
 class BaseIndex():
     def fit(self):
         raise NotImplementedError
@@ -18,12 +44,27 @@ class BaseIndex():
         raise NotImplementedError
 
     def test(self, query_embeddings, qids, ground_truths, topk, batch_size, MRR_cutoffs, Recall_cutoffs):
-        assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
-        scores, retrieve_results = self.search(query_embeddings, topk, batch_size)
-        return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)
+        raise NotImplementedError
 
     def search(self, query_embeddings, topk, batch_size):
         raise NotImplementedError
+
+    def hard_negative(self, query_embeddings, ground_truths=None, topk=400, batch_size=None):
+        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size)
+        query2hardneg = {}
+        for qid, neighbors in enumerate(search_results):
+            neg = list(filter(lambda x: x not in ground_truths[qid], neighbors))
+            query2hardneg[qid] = neg
+        return query2hardneg
+
+    def virtual_data(self, query_embeddings, topk=400, batch_size=None):
+        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size)
+        query2pos = {}
+        query2neg = {}
+        for qid, neighbors in enumerate(search_results):
+            query2pos[qid] = neighbors[:1]
+            query2neg[qid] = neighbors[1:]
+        return query2pos, query2neg
 
     def evaluate(self, retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids):
         MRR = [0.0] * len(MRR_cutoffs)
@@ -49,7 +90,7 @@ class BaseIndex():
         if len(ranking) == 0:
             raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
 
-        print(len(ranking))
+        print(f"{len(ranking)} matching queries found")
         MRR = [x / len(ranking) for x in MRR]
         for i, k in enumerate(MRR_cutoffs):
             print(f'MRR@{k}:{MRR[i]}')
