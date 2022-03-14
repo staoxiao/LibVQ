@@ -34,7 +34,9 @@ class ModelArguments:
 
 @dataclass
 class TrainingArguments:
-    master_port: str=field(default='13455')
+    master_port: str = field(default='13455')
+
+    training_mode: str = field(default='distill')
 
     optimizer_str: str = field(default="adaw")
     loss_method: str = field(default='distill')

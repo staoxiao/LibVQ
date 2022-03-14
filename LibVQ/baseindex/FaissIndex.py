@@ -11,7 +11,14 @@ from LibVQ.baseindex.BaseIndex import BaseIndex
 
 
 class FaissIndex(BaseIndex):
-    def __init__(self, index_method='ivfpq', emb_size=768, ivf_centers=10000, subvector_num=32, subvector_bits=8, dist_mode='ip'):
+    def __init__(self,
+                 index_method: str = 'ivf_opq',
+                 emb_size: int = 768,
+                 ivf_centers: int = 10000,
+                 subvector_num: int = 32,
+                 subvector_bits: int = 8,
+                 dist_mode: str = 'ip',
+                 doc_embeddings: np.narray = None):
 
         assert dist_mode in ('ip', 'l2')
         self.index_metric = faiss.METRIC_INNER_PRODUCT if dist_mode == 'ip' else faiss.METRIC_L2
@@ -34,6 +41,10 @@ class FaissIndex(BaseIndex):
         self.ivf_centers =ivf_centers
         self.subvector_num = subvector_num
         self.is_trained = False
+
+        if doc_embeddings is not None:
+            self.fit(doc_embeddings)
+            self.add(doc_embeddings)
 
     def fit(self, embeddings):
         if self.index_method != 'flat':
@@ -69,7 +80,10 @@ class FaissIndex(BaseIndex):
         else:
             self.index.nprobe = nprobe
 
-    def search(self, query_embeddings, topk=1000, batch_size=None):
+    def search(self, query_embeddings, topk=1000, nprobe=None, batch_size=64):
+        if nprobe is not None:
+            self.set_nprobe(nprobe)
+
         start_time = time.time()
         if batch_size:
             batch_num = math.ceil(len(query_embeddings) / batch_size)

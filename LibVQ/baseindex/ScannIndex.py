@@ -1,22 +1,18 @@
-# import scann
+import scann
 import time
 from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
 from LibVQ.baseindex.BaseIndex import BaseIndex
 
 
-class Index:
-    pass
-
-
 class ScaNNIndex(BaseIndex):
     def __init__(self, doc_embeddings, ivf_centers=10000, subvector_num=32, hash_type='lut256',
-                 anisotropic_quantization_threshold=0.2, threads_num=32):
-        # self.index = scann.scann_ops_pybind.builder(doc_embeddings, 100, "dot_product").tree(
-        #      num_leaves=ivf_centers, num_leaves_to_search=1,
-        #      training_sample_size=min(len(doc_embeddings), ivf_centers * 256)).score_ah(
-        #      len(doc_embeddings[0]) // subvector_num, anisotropic_quantization_threshold=anisotropic_quantization_threshold, hash_type=hash_type).build()
-        self.index.set_n_training_threads(threads_num)
+                 anisotropic_quantization_threshold=0.2):
+        self.index = scann.scann_ops_pybind.builder(doc_embeddings, 100, "dot_product").tree(
+             num_leaves=ivf_centers, num_leaves_to_search=1,
+             training_sample_size=min(len(doc_embeddings), ivf_centers * 256)).score_ah(
+             len(doc_embeddings[0]) // subvector_num, anisotropic_quantization_threshold=anisotropic_quantization_threshold, hash_type=hash_type).build()
+        # self.index.set_n_training_threads(threads_num)
 
     def search(self, query_embeddings, topk=1000, nprobe=1):
         start_time = time.time()

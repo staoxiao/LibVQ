@@ -32,11 +32,6 @@ class DatasetForVQ(Dataset):
         if doc_data_dir is not None:
             self.doc_dataset = TokensCache(data_dir=doc_data_dir, prefix="docs", max_length=max_doc_length)
 
-        if neg_file is not None:
-            self.query2neg = self.get_query2neg_from_file(neg_file)
-        else:
-            self.query2neg = self.random_negative_sample(self.query_list)
-
         assert per_query_neg_num > 0
         self.per_query_neg_num = per_query_neg_num
         self.query_length = max_query_length
@@ -48,14 +43,14 @@ class DatasetForVQ(Dataset):
         self.docs_list = list(range(len(self.doc_embeddings)))
         self.query_list = list(self.query2pos.keys())
 
+        if neg_file is not None:
+            self.query2neg = self.get_query2neg_from_file(neg_file)
+        else:
+            self.query2neg = self.random_negative_sample(self.query_list)
+
     def get_query2neg_from_file(self, neg_file):
         query2neg = pickle.load(open(neg_file, 'rb'))
-        print('top200 as neg---------------------------------')
-
-        new_query2neg = {}
-        for q, ns in query2neg.items():
-            new_query2neg[q] = ns[:200]
-        return new_query2neg
+        return query2neg
 
     def random_negative_sample(self, queries):
         query2neg = {}

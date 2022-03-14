@@ -130,7 +130,6 @@ def preprocess_data(data_dir: str,
     for file in os.listdir(data_dir):
         if 'queries' in file:
             prefix = file[:-12]
-            print(prefix)
             query_file = os.path.join(data_dir, file)
             rel_file = os.path.join(data_dir, f'{prefix}-rels.tsv')
             if not os.path.exists(rel_file):

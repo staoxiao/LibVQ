@@ -15,13 +15,17 @@ class LearnableVQ(nn.Module):
     def __init__(self,
                  config: Type[IndexConfig] = None,
                  index_file: str = None,
+                 index_method: str = 'ivf_opq',
                  encoder=None):
         nn.Module.__init__(self)
         self.config = config
         self.encoder = encoder
         if index_file is not None:
             self.pq = Quantization.from_faiss_index(index_file)
-            self.ivf = IVF_CPU.from_faiss_index(index_file)
+            if 'ivf' in index_method:
+                self.ivf = IVF_CPU.from_faiss_index(index_file)
+            else:
+                self.ivf = None
         else:
             self.pq = Quantization(emb_size=config.emb_size,
                                    subvector_num=config.subvector_num,
@@ -37,6 +41,7 @@ class LearnableVQ(nn.Module):
         return score / temperature
 
     def contras_loss(self, score):
+        if score is None: return 0.
         labels = torch.arange(start=0, end=score.shape[0],
                               dtype=torch.long, device=score.device)
         loss = F.cross_entropy(score, labels)
@@ -92,12 +97,16 @@ class LearnableVQ(nn.Module):
         rotate_doc_vecs = self.pq.rotate_vec(doc_vecs)
         rotate_neg_vecs = self.pq.rotate_vec(neg_vecs)
 
-        dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device, world_size=world_size)
-
-        residual_doc_vecs = rotate_doc_vecs - dc_emb
-        residual_neg_vecs = rotate_neg_vecs - nc_emb
-        quantized_doc = self.pq.quantization(residual_doc_vecs)
-        quantized_neg = self.pq.quantization(residual_neg_vecs)
+        if self.ivf is not None:
+            dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device, world_size=world_size)
+            residual_doc_vecs = rotate_doc_vecs - dc_emb
+            residual_neg_vecs = rotate_neg_vecs - nc_emb
+            quantized_doc = self.pq.quantization(residual_doc_vecs) + dc_emb
+            quantized_neg = self.pq.quantization(residual_neg_vecs) + nc_emb
+        else:
+            dc_emb, nc_emb  = None, None
+            quantized_doc = self.pq.quantization(rotate_doc_vecs)
+            quantized_neg = self.pq.quantization(rotate_neg_vecs)
 
         if world_size > 1 and cross_device_sample:
             origin_q_emb = self.dist_gather_tensor(origin_q_emb)
@@ -108,8 +117,9 @@ class LearnableVQ(nn.Module):
             rotate_doc_vecs = self.dist_gather_tensor(rotate_doc_vecs)
             rotate_neg_vecs = self.dist_gather_tensor(rotate_neg_vecs)
 
-            dc_emb = self.dist_gather_tensor(dc_emb)
-            nc_emb = self.dist_gather_tensor(nc_emb)
+            if dc_emb is not None:
+                dc_emb = self.dist_gather_tensor(dc_emb)
+                nc_emb = self.dist_gather_tensor(nc_emb)
 
             quantized_doc = self.dist_gather_tensor(quantized_doc)
             quantized_neg = self.dist_gather_tensor(quantized_neg)
@@ -120,7 +130,7 @@ class LearnableVQ(nn.Module):
         pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score,
-                                                          loss_method=loss_method)
+                                                          loss_method = loss_method)
         return dense_loss, ivf_loss, pq_loss
 
     def dist_gather_tensor(self, vecs):
@@ -130,7 +140,7 @@ class LearnableVQ(nn.Module):
 
     def save(self, save_path):
         self.encoder.save(os.path.join(save_path, 'encoder.bin'))
-        self.ivf.save(os.path.join(save_path, 'ivf_centers'))
+        if self.ivf is not None: self.ivf.save(os.path.join(save_path, 'ivf_centers'))
         self.pq.save(save_path)
         if self.config is not None:
             self.config.to_json_file(os.path.join(save_path, 'config.json'))

@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from transformers import AutoModel
 from transformers import AutoConfig
+import torch.distributed as dist
 
 class EncoderConfig(AutoConfig):
     def __init__(self):

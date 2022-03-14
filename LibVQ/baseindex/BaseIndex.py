@@ -46,19 +46,19 @@ class BaseIndex():
     def test(self, query_embeddings, qids, ground_truths, topk, batch_size, MRR_cutoffs, Recall_cutoffs):
         raise NotImplementedError
 
-    def search(self, query_embeddings, topk, batch_size):
+    def search(self, query_embeddings, topk, batch_size, nprobe):
         raise NotImplementedError
 
-    def hard_negative(self, query_embeddings, ground_truths=None, topk=400, batch_size=None):
-        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size)
+    def hard_negative(self, query_embeddings, ground_truths=None, topk=400, batch_size=None, nprobe=None):
+        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size, nprobe=nprobe)
         query2hardneg = {}
         for qid, neighbors in enumerate(search_results):
             neg = list(filter(lambda x: x not in ground_truths[qid], neighbors))
             query2hardneg[qid] = neg
         return query2hardneg
 
-    def virtual_data(self, query_embeddings, topk=400, batch_size=None):
-        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size)
+    def generate_virtual_traindata(self, query_embeddings, topk=400, batch_size=None, nprobe=None):
+        score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size, nprobe=nprobe)
         query2pos = {}
         query2neg = {}
         for qid, neighbors in enumerate(search_results):

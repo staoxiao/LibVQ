@@ -12,13 +12,19 @@ from LibVQ.dataset.dataset import DatasetForEncoding
 logger = logging.Logger(__name__)
 
 
-def inference_dataset(encoder, dataset, is_query, output_file, batch_size, dataparallel=True):
-    if os.path.exists(output_file + '_finished.flag'):
+def inference_dataset(encoder,
+                      dataset,
+                      is_query,
+                      output_file,
+                      batch_size,
+                      enable_rewrite=True,
+                      dataparallel=True):
+    if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
         print(f"{output_file}_finished.flag exists, skip inference")
         return
     if os.path.exists(output_file): os.remove(output_file)
-    output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
 
+    output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
     dataloader = DataLoader(
         dataset,
         sampler=SequentialSampler(dataset),
@@ -53,7 +59,9 @@ def inference(data_dir,
               prefix,
               max_length,
               output_dir,
-              batch_size
+              batch_size,
+              enable_rewrite=True,
+              dataparallel=True
               ):
     dataset = DatasetForEncoding(data_dir=data_dir, prefix=prefix, max_length=max_length)
     inference_dataset(encoder=encoder,
@@ -61,5 +69,6 @@ def inference(data_dir,
                       is_query=is_query,
                       output_file=os.path.join(output_dir, f"{prefix}.memmap"),
                       batch_size=batch_size,
-                      dataparallel=True)
+                      enable_rewrite=enable_rewrite,
+                      dataparallel=dataparallel)
 

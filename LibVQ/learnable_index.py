@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import torch
+import torch.distributed as dist
 import torch.multiprocessing as mp
 import traceback
 from pathlib import Path
@@ -27,16 +28,41 @@ from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
+                 index_method: str = 'ivf_opq',
                  encoder: Type[Encoder] = None,
                  config: Type[IndexConfig] = None,
-                 index_file: str = None
+                 index_file: str = None,
+                 emb_size: int = 768,
+                 ivf_centers: int = 10000,
+                 subvector_num: int = 32,
+                 subvector_bits: int = 8,
+                 dist_mode: str = 'ip',
+                 doc_embeddings: np.narray = None
                  ):
         super(LearnableIndex).__init__()
 
-        self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=index_file)
-        self.index = faiss.read_index(index_file)
+        if index is None or not os.path.exists(index_file):
+            logging.info(f"generating the init index by faiss")
+            self.index = FaissIndex(doc_embeddings=doc_embeddings,
+                                    emb_size=emb_size,
+                                    ivf_centers=ivf_centers,
+                                    subvector_num=subvector_num,
+                                    subvector_bits=subvector_bits,
+                                    index_method=index_method,
+                                    dist_mode=dist_mode)
 
-    def update_encoder(self, encoder_file=None, saved_ckpts_path=None, ):
+            if index_file is None:
+                index_file = f'./temp/{index_method}.index'
+                os.makedirs('./temp', exist_ok=True)
+            logging.inof(f"save the init index to {index_file}")
+            self.index.save_index(index_file)
+        else:
+            logging.info(f"loading the init index from {index_file}")
+            self.index = faiss.read_index(index_file)
+
+        self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=index_file, index_method=index_method)
+
+    def update_encoder(self, encoder_file=None, saved_ckpts_path=None):
         if encoder_file is None:
             assert saved_ckpts_path is not None
             ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
@@ -76,14 +102,12 @@ class LearnableIndex(FaissIndex):
 
         ivf_file = os.path.join(ckpt_path, 'ivf_centers.npy')
         if os.path.exists(ivf_file):
-            print(ivf_file)
             logging.info(f"loading ivf centers from {ivf_file}")
             center_vecs = np.load(ivf_file)
             self.update_ivf(center_vecs)
 
         codebook_file = os.path.join(ckpt_path, 'codebook.npy')
         if os.path.exists(codebook_file):
-            print(codebook_file)
             logging.info(f"loading codebook from {codebook_file}")
             codebook = np.load(codebook_file)
             self.update_pq(codebook=codebook, doc_embeddings=doc_embeddings)
@@ -111,6 +135,8 @@ class LearnableIndex(FaissIndex):
                   output_dir=output_dir,
                   batch_size=batch_size)
 
+
+
     def fit_with_multi_gpus(
             self,
             rel_file: str = None,
@@ -121,11 +147,12 @@ class LearnableIndex(FaissIndex):
             epochs: int = 5,
             per_device_train_batch_size: int = 128,
             per_query_neg_num: int = 1,
+            cross_device_sample: bool = True,
             neg_file: str = None,
             query_embeddings_file: str = None,
             doc_embeddings_file: str = None,
             emb_size: int = None,
-            warmup_steps: int = 1000,
+            warmup_steps_ratio: float = 0.1,
             optimizer_class: Type[Optimizer] = AdamW,
             lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
             loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
@@ -156,11 +183,12 @@ class LearnableIndex(FaissIndex):
                        epochs,
                        per_device_train_batch_size,
                        per_query_neg_num,
+                       cross_device_sample,
                        neg_file,
                        query_embeddings_file,
                        doc_embeddings_file,
                        emb_size,
-                       warmup_steps,
+                       warmup_steps_ratio,
                        optimizer_class,
                        lr_params,
                        loss_weight,
@@ -191,6 +219,7 @@ class LearnableIndex(FaissIndex):
             epochs: int = 5,
             per_device_train_batch_size: int = 128,
             per_query_neg_num: int = 1,
+            cross_device_sample: bool = True,
             neg_file: str = None,
             query_embeddings_file: str = None,
             doc_embeddings_file: str = None,
@@ -236,11 +265,8 @@ class LearnableIndex(FaissIndex):
                                   local_rank if local_rank >= 0 else 0)
 
             model = model.to(device)
-            if world_size > 1:
-                model = DDP(model,
-                            device_ids=[local_rank],
-                            output_device=local_rank,
-                            find_unused_parameters=True)
+
+            use_ivf = True if model.ivf is not None else False
 
             # Prepare optimizers
             num_train_steps = len(dataloader) * epochs
@@ -249,37 +275,44 @@ class LearnableIndex(FaissIndex):
             pq_parameter = ['rotate', 'codebook']
             optimizer_grouped_parameters = [
                 {'params': [p for n, p in param_optimizer if
-                            not any(nd in n for nd in no_decay) and n not in pq_parameter],
+                            not any(nd in n for nd in no_decay) and not any(nd in n for nd in pq_parameter)],
                  'weight_decay': weight_decay,
                  "lr": lr_params['encoder_lr']},
-                {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay) and n not in pq_parameter],
+                {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay) and not any(nd in n for nd in pq_parameter)],
                  'weight_decay': 0.0,
                  "lr": lr_params['encoder_lr']},
                 {
-                    "params": [p for n, p in param_optimizer if n in pq_parameter],
+                    "params": [p for n, p in param_optimizer if any(nd in n for nd in pq_parameter)],
                     "weight_decay": 0.0,
                     "lr": lr_params['pq_lr']
                 },
             ]
+
             optimizer = optimizer_class(optimizer_grouped_parameters)
             scheduler = get_linear_schedule_with_warmup(
-                optimizer, num_warmup_steps=warmup_steps_ratio * num_train_steps, num_training_steps=num_train_steps
+                optimizer, num_warmup_steps= int(warmup_steps_ratio * num_train_steps), num_training_steps=num_train_steps
             )
+
+            if world_size > 1:
+                model = DDP(model,
+                            device_ids=[local_rank],
+                            output_device=local_rank,
+                            find_unused_parameters=True)
 
             # train
             loss, dense_loss, ivf_loss, pq_loss = 0., 0., 0., 0.
             global_step = 0
             for epoch in trange(epochs, desc="Epoch", disable=not show_progress_bar):
-                optimizer.zero_grad()
                 model.train()
-
+                if world_size > 1:
+                    sampler.set_epoch(epoch)
                 for step, sample in enumerate(dataloader):
                     sample = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in sample.items()}
-
                     batch_dense_loss, batch_ivf_loss, batch_pq_loss = model(temperature=temperature,
                                                                             loss_method=loss_method,
                                                                             fix_emb=fix_emb,
                                                                             world_size=world_size,
+                                                                            cross_device_sample=cross_device_sample,
                                                                             **sample)
 
                     if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
@@ -293,10 +326,11 @@ class LearnableIndex(FaissIndex):
                     batch_loss = loss_weight['encoder_weight'] * batch_dense_loss + \
                                  loss_weight['pq_weight'] * batch_pq_loss + \
                                  loss_weight['ivf_weight'] * batch_ivf_loss
+
                     batch_loss.backward()
                     loss += batch_loss.item()
                     if not isinstance(batch_dense_loss, float):
-                        dense_loss += batch_dense_loss.item()
+                        dense_loss += loss_weight['encoder_weight'] * batch_dense_loss.item()
                     if not isinstance(batch_ivf_loss, float):
                         ivf_loss += loss_weight['ivf_weight'] * batch_ivf_loss.item()
                     if not isinstance(batch_pq_loss, float):
@@ -306,19 +340,22 @@ class LearnableIndex(FaissIndex):
                         torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
                     optimizer.step()
-                    if isinstance(model, DDP):
-                        model.module.ivf.grad_accumulate(world_size=world_size)
-                        model.module.ivf.update_centers(lr=lr_params['ivf_lr'])
-                    else:
-                        model.ivf.grad_accumulate()
-                        model.ivf.update_centers(lr=lr_params['ivf_lr'], world_size=world_size)
-
                     scheduler.step()
+
+                    if use_ivf:
+                        if isinstance(model, DDP):
+                            model.module.ivf.grad_accumulate(world_size=world_size)
+                            model.module.ivf.update_centers(lr=lr_params['ivf_lr'])
+                        else:
+                            model.ivf.grad_accumulate(world_size=world_size)
+                            model.ivf.update_centers(lr=lr_params['ivf_lr'])
+
                     optimizer.zero_grad()
-                    if isinstance(model, DDP):
-                        model.module.ivf.zero_grad()
-                    else:
-                        model.ivf.zero_grad()
+                    if use_ivf:
+                        if isinstance(model, DDP):
+                            model.module.ivf.zero_grad()
+                        else:
+                            model.ivf.zero_grad()
                     global_step += 1
 
                     if global_step % logging_steps == 0:
@@ -338,12 +375,20 @@ class LearnableIndex(FaissIndex):
                         if global_step % checkpoint_save_steps == 0 and (local_rank == 0 or local_rank == -1):
                             ckpt_path = os.path.join(checkpoint_path, f'epoch_{epoch}_step_{global_step}')
                             Path(ckpt_path).mkdir(parents=True, exist_ok=True)
-                            model.module.save(ckpt_path)
+                            if isinstance(model, DDP):
+                                model.module.save(ckpt_path)
+                            else:
+                                model.save(ckpt_path)
                             logging.info(f"model saved to {ckpt_path}")
+
+
                 if local_rank == 0 or local_rank == -1:
                     ckpt_path = os.path.join(checkpoint_path, f'epoch_{epoch}_step_{global_step}')
                     Path(ckpt_path).mkdir(parents=True, exist_ok=True)
-                    model.module.save(ckpt_path)
+                    if isinstance(model, DDP):
+                        model.module.save(ckpt_path)
+                    else:
+                        model.save(ckpt_path)
                     logging.info(f"model saved to {ckpt_path}")
         except:
             error_type, error_value, error_trace = sys.exc_info()
