@@ -48,6 +48,7 @@ class LearnableVQ(nn.Module):
         return loss
 
     def distill_loss(self, teacher_score, student_score):
+        if teacher_score is None or student_score is None: return 0.
         preds_smax = F.softmax(student_score, dim=1)
         true_smax = F.softmax(teacher_score, dim=1)
         preds_smax = preds_smax + 1e-6
@@ -83,13 +84,13 @@ class LearnableVQ(nn.Module):
                 world_size: int = 1,
                 cross_device_sample: bool = True):
 
-        if 'query' in fix_emb:
+        if fix_emb is not None and 'query' in fix_emb:
             query_vecs = origin_q_emb
         else:
             query_vecs = self.encoder.query_emb(query_token_ids, query_attention_mask)
         rotate_query_vecs = self.pq.rotate_vec(query_vecs)
 
-        if 'doc' in fix_emb:
+        if fix_emb is not None and 'doc' in fix_emb:
             doc_vecs, neg_vecs = origin_d_emb, origin_n_emb
         else:
             doc_vecs = self.encoder.doc_emb(doc_token_ids, doc_attention_mask)
@@ -139,8 +140,8 @@ class LearnableVQ(nn.Module):
         return dist_gather_tensor(vecs, world_size=dist.get_world_size(), local_rank=dist.get_rank(), detach=False)
 
     def save(self, save_path):
-        self.encoder.save(os.path.join(save_path, 'encoder.bin'))
-        if self.ivf is not None: self.ivf.save(os.path.join(save_path, 'ivf_centers'))
         self.pq.save(save_path)
-        if self.config is not None:
-            self.config.to_json_file(os.path.join(save_path, 'config.json'))
+
+        if self.encoder is not None: self.encoder.save(os.path.join(save_path, 'encoder.bin'))
+        if self.ivf is not None: self.ivf.save(os.path.join(save_path, 'ivf_centers'))
+        if self.config is not None: self.config.to_json_file(os.path.join(save_path, 'config.json'))

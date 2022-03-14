@@ -1,5 +1,6 @@
 import json
 import logging
+import numpy
 import numpy as np
 import os
 import pickle
@@ -8,22 +9,25 @@ import torch
 from collections import defaultdict
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from typing import List
+from typing import List, Union, Dict
 
 
 class DatasetForVQ(Dataset):
     def __init__(self,
-                 rel_file: str,
+                 rel_data: Union[str, Dict[int, List[int]]] = None,
                  query_data_dir: str = None,
                  max_query_length: int = 32,
                  doc_data_dir: str = None,
                  max_doc_length: int = 256,
                  per_query_neg_num: int = 1,
-                 neg_file: str = None,
-                 doc_embeddings_file: str = None,
-                 query_embeddings_file: str = None,
+                 neg_data: Union[str, Dict[int, List[int]]] = None,
+                 query_embeddings: Union[str, numpy.ndarray] = None,
+                 doc_embeddings: Union[str, numpy.ndarray] = None,
                  emb_size: int = 768):
-        self.query2pos = load_rel(rel_file)
+        if isinstance(rel_data, str):
+            self.query2pos = load_rel(rel_data)
+        else:
+            self.query2pos = rel_data
 
         self.query_dataset, self.doc_dataset = None, None
         if query_data_dir is not None:
@@ -37,14 +41,17 @@ class DatasetForVQ(Dataset):
         self.query_length = max_query_length
         self.doc_length = max_doc_length
 
-        self.doc_embeddings = self.init_embedding(doc_embeddings_file, emb_size=emb_size)
-        self.query_embeddings = self.init_embedding(query_embeddings_file, emb_size=emb_size)
+        self.doc_embeddings = self.init_embedding(doc_embeddings, emb_size=emb_size)
+        self.query_embeddings = self.init_embedding(query_embeddings, emb_size=emb_size)
 
         self.docs_list = list(range(len(self.doc_embeddings)))
         self.query_list = list(self.query2pos.keys())
 
-        if neg_file is not None:
-            self.query2neg = self.get_query2neg_from_file(neg_file)
+        if neg_data is not None:
+            if isinstance(neg_data, str):
+                self.query2neg = self.get_query2neg_from_file(neg_data)
+            else:
+                self.query2neg = neg_data
         else:
             self.query2neg = self.random_negative_sample(self.query_list)
 
@@ -56,20 +63,27 @@ class DatasetForVQ(Dataset):
         query2neg = {}
         for q in queries:
             neg = random.sample(self.docs_list, 100)
-            query2neg[q] = set(neg)
+            query2neg[q] = list(neg)
         return query2neg
 
-    def init_embedding(self, emb_file, emb_size):
-        if emb_file is not None:
-            embeddings = np.memmap(emb_file, dtype=np.float32, mode="r")
-            return embeddings.reshape(-1, emb_size)
+    def init_embedding(self, emb, emb_size):
+        if isinstance(emb, str):
+            if emb is not None:
+                embeddings = np.memmap(emb, dtype=np.float32, mode="r")
+                return embeddings.reshape(-1, emb_size)
+            else:
+                return None
         else:
-            return None
+            return emb
 
     def __getitem__(self, index):
         query = self.query_list[index]
+
         pos = random.sample(self.query2pos[query], 1)[0]
-        negs = random.sample(self.query2neg[query], self.per_query_neg_num)
+        if self.per_query_neg_num > len(self.query2neg[query]):
+            negs = self.query2neg[query] + random.sample(self.docs_list, self.per_query_neg_num - len(self.query2neg[query]))
+        else:
+            negs = random.sample(self.query2neg[query], self.per_query_neg_num)
 
         query_tokens, pos_tokens, negs_tokens = None, None, None
         if self.query_dataset is not None:

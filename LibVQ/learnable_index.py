@@ -1,6 +1,7 @@
 import argparse
 import faiss
 import logging
+import numpy
 import numpy as np
 import os
 import sys
@@ -28,24 +29,37 @@ from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
-                 index_method: str = 'ivf_opq',
+                 index_method: str,
                  encoder: Type[Encoder] = None,
                  config: Type[IndexConfig] = None,
                  index_file: str = None,
                  emb_size: int = 768,
-                 ivf_centers: int = 10000,
+                 ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
                  subvector_bits: int = 8,
                  dist_mode: str = 'ip',
-                 doc_embeddings: np.narray = None
+                 doc_embeddings: np.ndarray = None
                  ):
+        """
+
+        :param index_method:
+        :param encoder:
+        :param config:
+        :param index_file:
+        :param emb_size:
+        :param ivf_centers_num:
+        :param subvector_num:
+        :param subvector_bits:
+        :param dist_mode:
+        :param doc_embeddings:
+        """
         super(LearnableIndex).__init__()
 
-        if index is None or not os.path.exists(index_file):
+        if index_file is None or not os.path.exists(index_file):
             logging.info(f"generating the init index by faiss")
             self.index = FaissIndex(doc_embeddings=doc_embeddings,
                                     emb_size=emb_size,
-                                    ivf_centers=ivf_centers,
+                                    ivf_centers_num=ivf_centers_num,
                                     subvector_num=subvector_num,
                                     subvector_bits=subvector_bits,
                                     index_method=index_method,
@@ -54,7 +68,7 @@ class LearnableIndex(FaissIndex):
             if index_file is None:
                 index_file = f'./temp/{index_method}.index'
                 os.makedirs('./temp', exist_ok=True)
-            logging.inof(f"save the init index to {index_file}")
+            logging.info(f"save the init index to {index_file}")
             self.index.save_index(index_file)
         else:
             logging.info(f"loading the init index from {index_file}")
@@ -125,16 +139,24 @@ class LearnableIndex(FaissIndex):
                 latest_step = max(latest_step, step)
         return os.path.join(saved_ckpts_path, f"epoch_{latest_epoch}_step_{latest_step}")
 
-    def encode(self, data_dir, prefix, max_length, output_dir, batch_size, is_query):
+    def encode(self,
+               data_dir: str,
+               prefix: str,
+               max_length: int,
+               output_dir: str,
+               batch_size: int,
+               is_query: bool,
+               return_vecs: bool = False):
         os.makedirs(output_dir, exist_ok=True)
-        inference(data_dir=data_dir,
+        vecs = inference(data_dir=data_dir,
                   is_query=is_query,
                   encoder=self.learnable_vq.encoder,
                   prefix=prefix,
                   max_length=max_length,
                   output_dir=output_dir,
-                  batch_size=batch_size)
-
+                  batch_size=batch_size,
+                  return_vecs=return_vecs)
+        return vecs
 
 
     def fit_with_multi_gpus(
@@ -205,12 +227,13 @@ class LearnableIndex(FaissIndex):
                  nprocs=world_size,
                  join=True)
 
+
     @staticmethod
     def fit(
             local_rank: int = -1,
             model: Type[LearnableVQ] = None,
             dataset: Type[DatasetForVQ] = None,
-            rel_file: str = None,
+            rel_data: Union[str, Dict[int, List[int]]] = None,
             query_data_dir: str = None,
             max_query_length: int = 32,
             doc_data_dir: str = None,
@@ -220,9 +243,9 @@ class LearnableIndex(FaissIndex):
             per_device_train_batch_size: int = 128,
             per_query_neg_num: int = 1,
             cross_device_sample: bool = True,
-            neg_file: str = None,
-            query_embeddings_file: str = None,
-            doc_embeddings_file: str = None,
+            neg_data: Union[str, Dict[int, List[int]]] = None,
+            query_embeddings: Union[str, numpy.ndarray] = None,
+            doc_embeddings: Union[str, numpy.ndarray] = None,
             emb_size: int = None,
             warmup_steps_ratio: float = 0.1,
             optimizer_class: Type[Optimizer] = AdamW,
@@ -242,15 +265,15 @@ class LearnableIndex(FaissIndex):
         try:
             setuplogging()
             if dataset is None:
-                dataset = DatasetForVQ(rel_file=rel_file,
+                dataset = DatasetForVQ(rel_data=rel_data,
                                        query_data_dir=query_data_dir,
                                        doc_data_dir=doc_data_dir,
                                        max_query_length=max_query_length,
                                        max_doc_length=max_doc_length,
                                        per_query_neg_num=per_query_neg_num,
-                                       neg_file=neg_file,
-                                       doc_embeddings_file=doc_embeddings_file,
-                                       query_embeddings_file=query_embeddings_file,
+                                       neg_data=neg_data,
+                                       doc_embeddings=doc_embeddings,
+                                       query_embeddings=query_embeddings,
                                        emb_size=emb_size)
 
             if world_size > 1:
@@ -316,12 +339,15 @@ class LearnableIndex(FaissIndex):
                                                                             **sample)
 
                     if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
-                        weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
-                        if world_size > 1:
-                            weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
-                            weight = torch.mean(weight)
-                        loss_weight['ivf_weight'] = weight.detach().float().item()
-                        logging.info(f"ivf_weight = {loss_weight['ivf_weight']}")
+                        if use_ivf:
+                            weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
+                            if world_size > 1:
+                                weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
+                                weight = torch.mean(weight)
+                            loss_weight['ivf_weight'] = weight.detach().float().item()
+                            logging.info(f"ivf_weight = {loss_weight['ivf_weight']}")
+                        else:
+                            loss_weight['ivf_weight'] = 0.0
 
                     batch_loss = loss_weight['encoder_weight'] * batch_dense_loss + \
                                  loss_weight['pq_weight'] * batch_pq_loss + \

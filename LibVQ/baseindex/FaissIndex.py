@@ -14,31 +14,34 @@ class FaissIndex(BaseIndex):
     def __init__(self,
                  index_method: str = 'ivf_opq',
                  emb_size: int = 768,
-                 ivf_centers: int = 10000,
+                 ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
                  subvector_bits: int = 8,
                  dist_mode: str = 'ip',
-                 doc_embeddings: np.narray = None):
+                 doc_embeddings: np.ndarray = None):
 
         assert dist_mode in ('ip', 'l2')
         self.index_metric = faiss.METRIC_INNER_PRODUCT if dist_mode == 'ip' else faiss.METRIC_L2
+
+        if doc_embeddings is not None:
+            emb_size = np.shape(doc_embeddings)[-1]
 
         if index_method == 'flat':
             self.index = faiss.IndexFlatIP(emb_size) if dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
         elif index_method == 'ivf':
             quantizer = faiss.IndexFlatIP(emb_size) if dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
-            self.index = faiss.IndexIVFFlat(quantizer, emb_size, ivf_centers, self.index_metric)
+            self.index = faiss.IndexIVFFlat(quantizer, emb_size, ivf_centers_num, self.index_metric)
         elif index_method == 'ivf_opq':
-            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, IVF{ivf_centers}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
+            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
         elif index_method == 'ivf_pq':
-            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
+            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
         elif index_method == 'opq':
             self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
         elif index_method == 'pq':
             self.index = faiss.index_factory(emb_size, f"PQ{subvector_num}x{subvector_bits}", self.index_metric)
 
         self.index_method = index_method
-        self.ivf_centers =ivf_centers
+        self.ivf_centers_num =ivf_centers_num
         self.subvector_num = subvector_num
         self.is_trained = False
 
@@ -94,8 +97,8 @@ class FaissIndex(BaseIndex):
                 end = min(batch_size * (step + 1), len(query_embeddings))
                 batch_emb = np.array(query_embeddings[start:end])
                 score, batch_results = self.index.search(batch_emb, topk)
-                all_search_results.extend(batch_results.tolist())
-                all_scores.extend(score.tolist())
+                all_search_results.extend([list(x) for x in batch_results])
+                all_scores.extend([list(x) for x in score])
         else:
             all_scores, all_search_results = self.index.search(query_embeddings, topk)
         search_time = time.time() - start_time
@@ -103,7 +106,15 @@ class FaissIndex(BaseIndex):
         return all_scores, all_search_results
 
 
-    def test(self, query_embeddings, qids, ground_truths, topk, batch_size, MRR_cutoffs, Recall_cutoffs):
+    def test(self,
+             query_embeddings,
+             ground_truths,
+             topk,
+             MRR_cutoffs,
+             Recall_cutoffs,
+             nprobe=1,
+             qids=None,
+             batch_size=64):
         assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
-        scores, retrieve_results = self.search(query_embeddings, topk, batch_size)
+        scores, retrieve_results = self.search(query_embeddings, topk, nprobe, batch_size)
         return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)
