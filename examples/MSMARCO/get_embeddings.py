@@ -13,7 +13,7 @@ from arguments import DataArguments, ModelArguments
 
 if __name__ == '__main__':
     parser = HfArgumentParser((DataArguments, ModelArguments))
-    index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
+    data_args, model_args = parser.parse_args_into_dataclasses()
 
     os.makedirs(data_args.output_dir, exist_ok=True)
 

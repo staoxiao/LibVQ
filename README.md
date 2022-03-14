@@ -131,7 +131,7 @@ scores, ann_items = learnable_index.search(query_embeddings = query_embeddings,
 
 
 ## Examples
-- [MSMARCO](./examples/MSMARCO/README.md)  
+- [MSMARCO](./examples/MSMARCO/)  
 - More examples are comming soon
 
 
