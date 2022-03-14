@@ -57,7 +57,6 @@ python scann_pq.py  \
 ```
 python train_index.py  \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
 --output_dir ./data/passage/evaluate/co-condenser \
 --query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
 --doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
@@ -157,11 +156,12 @@ Methods (nprobe=100)| MRR@10 | Recall@10 | Recall@100 | Time(ms per query) |
 Faiss-IVFPQ | 0.1380 | 0. 2820 | 0.5617 |  |
 Faiss-IVFOPQ | 0.3102 | 0.5593 | 0.8148 |  |
 Scann | 0.1791 | 0.3499 | 0.6345 | |
-LearnableIndex-Contras | 0.3192 | 0.5799 | 0.8427 |  |
-LearnableIndex-Distill | 0.3311 | 0.5907 | 0.8429 |  |
-LearnableIndex-Distill_nolabel | | | | |
-LearnableIndex-Distill_fix-emb | | | | |
-LearnableIndex-contras_fix-emb | 0.3179 | 0.5724 | 0.8214 | |
+LearnableIndex-contras | 0.3179 | 0.5724 | 0.8214 | |
+LearnableIndex-Distill | | | | |
+jointly_LearnableIndex-Contras | 0.3192 | 0.5799 | 0.8427 |  |
+jointly_LearnableIndex-Distill | 0.3311 | 0.5907 | 0.8429 |  |
+jointly_LearnableIndex-Distill_nolabel | | | | |
+
 
 
 
