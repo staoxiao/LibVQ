@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # select a latest ckpt
     ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
-    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.loss_method}_{training_args.fix_emb}'
+    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
 
     # update index
     print('Updating the index with new ivf and pq')

@@ -133,7 +133,7 @@ python faiss_index.py  \
 --subvector_bits 8 
 ```
 
-Besides, you can train both doc encoder and query encoder when only train PQ.
+Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_jointly_v2`).
 ```
 python train_index_and_encoder.py  \
 --data_dir ./data/passage/dataset \
@@ -155,7 +155,9 @@ python train_index_and_encoder.py  \
 ## Results
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
-Faiss-PQ | 0.1145 | 0. 2369 | 0.5046 |  
+Faiss-PQ | 0.1145 | 0.2369 | 0.5046 |  
 Faiss-OPQ | 0.3268 | 0.5939 | 0.8651 |    
-LearnableIndex(distill_jointly) | **0.3437** | **0.6201** | **0.8819** |  
+LearnableIndex(distill_jointly) | 0.3437 | 0.6201 | 0.8819 | 
+LearnableIndex(distill_jointly_v2) | **0.3475** | **0.6223** | **0.8901** |  
+ 
 

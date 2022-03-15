@@ -45,6 +45,7 @@ if __name__ == '__main__':
     # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
     # if no, it will creat and save a faiss index in init_index_file
     learnable_index = LearnableIndex(index_method=index_args.index_method,
+                                     encoder=text_encoder,
                                      init_index_file=os.path.join(data_args.output_dir,
                                                                   f'{index_args.index_method}.index'),
                                      doc_embeddings=doc_embeddings,
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
 
     # update query embeddings when re-training the query encoder
-    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.loss_method}_{training_args.fix_emb}'
+    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
     learnable_index.update_encoder(encoder_file=f'{ckpt_path}/encoder.bin')
     learnable_index.encode(data_dir=data_args.preprocess_dir,
                            prefix='dev-queries',
@@ -174,6 +175,19 @@ if __name__ == '__main__':
                                  mode="r")
     new_query_embeddings = new_query_embeddings.reshape(-1, emb_size)
 
+    # update doc embeddings when re-training the doc encoder
+    if training_args.training_mode == 'distill_jointly_v2':
+        learnable_index.encode(data_dir=data_args.preprocess_dir,
+                               prefix='docs',
+                               max_length=data_args.max_doc_length,
+                               output_dir=data_args.output_dir,
+                               batch_size=8196,
+                               is_query=False,
+                               )
+        print(f'{data_args.output_dir}/docs.memmap')
+        doc_embeddings = np.memmap(f'{data_args.output_dir}/docs.memmap', dtype=np.float32,
+                                         mode="r")
+        doc_embeddings = doc_embeddings.reshape(-1, emb_size)
 
     # update index
     print('Updating the index with new ivf and pq')

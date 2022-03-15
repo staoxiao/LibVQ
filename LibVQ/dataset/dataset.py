@@ -68,11 +68,12 @@ class DatasetForVQ(Dataset):
 
     def init_embedding(self, emb, emb_size):
         if isinstance(emb, str):
-            if emb is not None:
+            assert 'npy' in emb or 'memmap' in emb
+            if 'memmap' in emb:
                 embeddings = np.memmap(emb, dtype=np.float32, mode="r")
                 return embeddings.reshape(-1, emb_size)
-            else:
-                return None
+            elif 'npy' in emb:
+                return np.load(emb)
         else:
             return emb
 
