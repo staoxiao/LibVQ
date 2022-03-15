@@ -34,12 +34,12 @@ class Encoder(nn.Module):
     def query_emb(self, input_ids, attention_mask):
         outputs = self.query_encoder(input_ids=input_ids, attention_mask=attention_mask)
         embeddings = self.pooling(outputs, attention_mask)
-        return embeddings
+        return embeddings.contiguous()
 
     def doc_emb(self, input_ids, attention_mask):
         outputs = self.doc_encoder(input_ids=input_ids, attention_mask=attention_mask)
         embeddings = self.pooling(outputs, attention_mask)
-        return embeddings
+        return embeddings.contiguous()
 
     def forward(self, input_ids, attention_mask, is_query):
         if is_query:

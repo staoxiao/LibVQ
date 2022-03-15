@@ -10,7 +10,7 @@ Then convert and preprocess them to the format which is need for our dataset cla
 ```
 python convert_data_format.py
 ```
- or you can rewrite the `torch.nn.utils.Dataset` for your data.
+ or you can rewrite the `torch.nn.utils.data.Dataset` for your data.
 
 
 ## Generate Embeddings
@@ -25,12 +25,13 @@ python get_embeddings.py  \
 --output_dir ./data/passage/evaluate/co-condenser 
 ```
 The code will preprocess the data into `preprocess_dir` (for training encoder)
-and generate embeddings into `output_dir` (for training index).
+and generate embeddings into `output_dir` (for training index). More information about data format 
+pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 
 
 
 ## IVFPQ
-### Faiss Index
++ ### Faiss Index
 ```
 python faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
@@ -43,7 +44,7 @@ python faiss_index.py  \
 --nprobe 100
 ```
 
-### ScaNN Index
++ ### ScaNN Index
 ```
 python scann_index.py  \
 --preprocess_dir ./data/passage/preprocess \
@@ -55,8 +56,8 @@ python scann_index.py  \
 ```
 
 
-### Learnable Index
-- **Finetune the index with fixed embeddings:**  
++ ### Learnable Index
+**Finetune the index with fixed embeddings:**  
 (need the embeddings of queries and docs)
 ```
 python train_index.py  \
@@ -73,7 +74,7 @@ python train_index.py  \
 --per_device_train_batch_size 512
 ```
 
-- **Jointly train index and query encoder (always has a better performance):**  
+**Jointly train index and query encoder (always has a better performance):**  
 (need embeddings and a query encoder)
 ```
 python train_index_and_encoder.py  \
@@ -96,14 +97,14 @@ python train_index_and_encoder.py  \
 We provide several different training modes:
 1. **contrastive**: contrastive learning;
 2. **distill**: knowledge distillation; transfer knowledge (i.e., the order of docs) from the dense vector to the IVF and PQ
-3. **distill_virtual-data**: knowledge distillation with non-label data; in this way, 
-we use a accurate index (e.g., flat index) to find the top-k docs for each train queries, 
+3. **distill_virtual-data**: knowledge distillation for non-label data; in this way, 
+first to find the top-k docs for each train queries by brute-force search (or a index with high performance), 
 then use these results to form a new train data.    
 
 More details of implementation please refer to [train_index.py](train_index.py) and [train_index_and_encoder](train_index_and_encoder.py).
 
 
-### Results
++ ### Results
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- |
@@ -121,6 +122,7 @@ LearnableIndex(distill_virtual-data_jointly) | 0.3285 | 0.5875 | 0.8401 |
 
 
 ## PQ
++ ###Index
 For PQ, you can reuse above commands and only change the `--index_method` to `pq` or `opq`.
 For example:
 ```
@@ -151,8 +153,7 @@ python train_index_and_encoder.py  \
 --per_device_train_batch_size 128
 ```
 
-
-## Results
++ ### Results
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
 Faiss-PQ | 0.1145 | 0.2369 | 0.5046 |  

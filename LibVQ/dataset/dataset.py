@@ -23,7 +23,20 @@ class DatasetForVQ(Dataset):
                  neg_data: Union[str, Dict[int, List[int]]] = None,
                  query_embeddings: Union[str, numpy.ndarray] = None,
                  doc_embeddings: Union[str, numpy.ndarray] = None,
-                 emb_size: int = 768):
+                 emb_size: int = None):
+        """
+        :param rel_data: positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2pos.
+        :param query_data_dir: path to the preprocessed tokens data (needed for jointly training query encoder).
+        :param max_query_length: max length of query tokens sequence.
+        :param doc_data_dir: path to the preprocessed tokens data (needed for jointly training doc encoder).
+        :param max_doc_length: max length of doc tokens sequence.
+        :param per_query_neg_num: the number of negatives for each query.
+        :param neg_data: negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
+                        if set None, it will randomly sample negative.
+        :param query_embeddings: embeddings for each query, also support pass a filename('.npy', '.memmap').
+        :param doc_embeddings: embeddigns for each doc, also support pass a filename('.npy', '.memmap').
+        :param emb_size: dim of embeddings.
+        """
         if isinstance(rel_data, str):
             self.query2pos = load_rel(rel_data)
         else:

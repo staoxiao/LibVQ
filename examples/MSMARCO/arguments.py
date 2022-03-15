@@ -40,18 +40,17 @@ class TrainingArguments:
     optimizer_str: str = field(default="adaw")
     loss_method: str = field(default='distill')
     temperature: float=field(default=1)
-    max_grad_norm: float = field(default=1)
+    max_grad_norm: float = field(default=-1)
 
     per_query_neg_num: int = field(default=1)
     fix_emb: str = field(default='doc', metadata={"help": "Fix the embeddings of doc(query)"})
     per_device_train_batch_size: int = field(
         default=64, metadata={"help": "Batch size per GPU/TPU core/CPU for training."})
 
-    gradient_accumulation_steps: int = field(
-        default=1,
-        metadata={"help": "Number of updates steps to accumulate before performing a backward/update pass."}, )
+    encoder_lr : float = field(default=1e-5, metadata={"help": "The learning rate for encoder."})
+    ivf_lr : float = field(default=1e-3, metadata={"help": "The learning rate for ivf centers."})
+    pq_lr : float = field(default=1e-4, metadata={"help": "The learning rate for pq codebooks."})
 
-    learning_rate: float = field(default=2e-4, metadata={"help": "The initial learning rate for optimizer."})
     num_train_epochs: int = field(default=5.0, metadata={"help": "Total number of training epochs to perform."})
     logging_steps: int = field(default=100, metadata={"help": "Log every X updates steps."})
-    save_steps: int = field(default=10000, metadata={"help": "Save checkpoint every X updates steps."})
+    checkpoint_save_steps: int = field(default=10000, metadata={"help": "Save checkpoint every X updates steps."})

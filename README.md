@@ -24,7 +24,7 @@ We recommend to jointly train the encoder and index, which can get the best perf
 For this method, you should prepare a trained encoder and the text data:
 - The encoder should inherit the class [Encoder](./LibVQ/models/encoder.py).
 - Please refer to [dataset.README](./LibVQ/dataset/README.md)
-for the data format, or you can give a child class of `torch.utils.dataet` for your data.
+for the data format, or you can give a child class of `torch.utils.data.dataset` for your data.
 
 
 ## Index
@@ -55,7 +55,7 @@ faiss_index = FaissIndex(doc_embeddings = doc_embeddings,
                          ivf_centers_num = ivf_centers_num,
                          subvector_num = subvector_num,
                          subvector_bits = subvector_bits,
-                         index_method = 'ivf_opq',
+                         index_method = 'ivf_pq',
                          dist_mode = 'ip')
 scores, ann_items = faiss_index.search(query_embeddings = query_embeddings,
                                        topk = 100,
@@ -74,7 +74,7 @@ learnable_index = LearnableIndex(doc_embeddings = doc_embeddings,
                          index_method = 'ivf_opq',
                          dist_mode = 'ip')
 
-# generate virtual train data if there is no label data
+# generate virtual train data if there is no labeled data
 brute_index = FaissIndex(doc_embeddings = doc_embeddings,
                          index_method = 'flat',
                          dist_mode = 'ip')
@@ -129,6 +129,7 @@ scores, ann_items = learnable_index.search(query_embeddings = query_embeddings,
                                        nprobe = nprobe)
 ```
 
+**Besides, learnable_index.index is a faiss index, which supports all operations in [faiss](https://github.com/facebookresearch/faiss) (e.g., GPU acceleration).**
 
 ## Examples
 - [MSMARCO](./examples/MSMARCO/)  

@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import faiss
 import pickle
-from transformers import HfArgumentParser
+from transformers import HfArgumentParser, AdamW
 
 from LibVQ.dataset.dataset import load_rel, write_rel
 from LibVQ.learnable_index import LearnableIndex
@@ -63,6 +63,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='contras',
@@ -82,6 +86,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
@@ -94,7 +102,7 @@ if __name__ == '__main__':
 
         # generate train data by brute-force or the index which should has similar performance with brute force
         if not os.path.exists(os.path.join(data_args.output_dir, 'train-virtual_rel.tsv')):
-            # flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
+            flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
             # query2pos, query2neg = trainquery2hardneg = flat_index.generate_virtual_traindata(train_query_embeddings,
             #                                                                                        topk=400, batch_size=64)
             # or
@@ -115,6 +123,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',

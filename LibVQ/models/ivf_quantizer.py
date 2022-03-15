@@ -16,8 +16,13 @@ class IVF_CPU(nn.Module):
     @classmethod
     def from_faiss_index(cls, index_file):
         print(f'loading IVF from Faiss index: {index_file}')
+
         index = faiss.read_index(index_file)
-        ivf_index = faiss.downcast_index(index.index)
+        if isinstance(index, faiss.IndexPreTransform):
+            ivf_index = faiss.downcast_index(index.index)
+        else:
+            ivf_index = index
+
         coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
         coarse_embeds = faiss.vector_to_array(coarse_quantizer.xb)
         center_vecs = coarse_embeds.reshape((-1, ivf_index.d))

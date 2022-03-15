@@ -20,7 +20,7 @@ from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
 from LibVQ.baseindex import FaissIndex
 from LibVQ.baseindex import IndexConfig
-from LibVQ.dataset.dataset import DatasetForVQ, DataCollatorForVQ
+from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ
 from LibVQ.inference import inference
 from LibVQ.learnable_vq import LearnableVQ
 from LibVQ.models import Encoder
@@ -41,17 +41,17 @@ class LearnableIndex(FaissIndex):
                  doc_embeddings: np.ndarray = None
                  ):
         """
-
-        :param index_method:
-        :param encoder:
-        :param config:
-        :param index_file:
-        :param emb_size:
-        :param ivf_centers_num:
-        :param subvector_num:
-        :param subvector_bits:
-        :param dist_mode:
-        :param doc_embeddings:
+        finetune the index and encoder
+        :param index_method: the type of index, e.g., ivf_pq, pq, opq
+        :param encoder: the encoder for query and doc
+        :param config: config of index
+        :param init_index_file: the faiss index file, if is None, it will create a faiss index and save it
+        :param emb_size: dim of embeddings
+        :param ivf_centers_num: the number of post lists
+        :param subvector_num: the number of codebooks
+        :param subvector_bits: the number of codewords for each codebook
+        :param dist_mode: metric to calculate the distance between query and doc
+        :param doc_embeddings: embeddings of docs, needed when there is no a trained index in init_index_file
         """
         super(LearnableIndex).__init__()
 
@@ -231,8 +231,8 @@ class LearnableIndex(FaissIndex):
     @staticmethod
     def fit(
             local_rank: int = -1,
-            model: Type[LearnableVQ] = None,
-            dataset: Type[DatasetForVQ] = None,
+            model: LearnableVQ = None,
+            dataset: DatasetForVQ = None,
             rel_data: Union[str, Dict[int, List[int]]] = None,
             query_data_dir: str = None,
             max_query_length: int = 32,
@@ -338,9 +338,13 @@ class LearnableIndex(FaissIndex):
                                                                             cross_device_sample=cross_device_sample,
                                                                             **sample)
 
-                    if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
+                    if isinstance(loss_weight['ivf_weight'], str):
                         if use_ivf:
-                            weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
+                            if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
+                                weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
+                            elif loss_weight['ivf_weight'] == 'scaled_to_denseloss':
+                                weight = batch_dense_loss / (batch_ivf_loss + 1e-6)
+                            else: raise RuntimeError("loss_weight['ivf_weight'] should be in ['scaled_to_pqloss', 'scaled_to_denseloss']")
                             if world_size > 1:
                                 weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
                                 weight = torch.mean(weight)

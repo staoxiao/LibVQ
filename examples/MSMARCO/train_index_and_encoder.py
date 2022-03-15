@@ -3,11 +3,12 @@ import torch
 import numpy as np
 import faiss
 import pickle
-from transformers import HfArgumentParser
+from transformers import HfArgumentParser, AdamW
 
 from LibVQ.models import Encoder, EncoderConfig
 from LibVQ.dataset.dataset import load_rel, write_rel
 from LibVQ.learnable_index import LearnableIndex
+from LibVQ.baseindex import FaissIndex
 from LibVQ.utils import setuplogging
 
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
@@ -75,6 +76,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params = {'encoder_lr': 1e-5, 'pq_lr':1e-4, 'ivf_lr':1e-3},
                                             loss_method = 'contras',
@@ -95,6 +100,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature = training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
@@ -118,6 +127,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.max_grad_norm,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 0.0},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 0.0},
                                             loss_method='distill',
@@ -151,6 +164,10 @@ if __name__ == '__main__':
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            checkpoint_save_steps=training_args.checkpoint_save_steps,
+                                            max_grad_norm=training_args.training_args,
+                                            temperature=training_args.temperature,
+                                            optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
