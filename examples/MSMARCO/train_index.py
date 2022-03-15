@@ -73,8 +73,8 @@ if __name__ == '__main__':
     # distill based on fixed embeddigns of queries and docs
     if training_args.training_mode == 'distill_index':
         data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
-        learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.output_dir, 'train-virtual_rel.tsv'),
-                                            neg_file=os.path.join(data_args.output_dir, f"train-queries-virtual_hardneg.pickle"),
+        learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+                                            neg_file=os.path.join(data_args.output_dir, f"train-queries_hardneg.pickle"),
                                             query_embeddings_file=data_args.query_embeddings_file,
                                             doc_embeddings_file=data_args.doc_embeddings_file,
                                             emb_size = emb_size,
