@@ -73,7 +73,6 @@ python train_index.py  \
 --per_device_train_batch_size 512
 ```
 
-
 - **Jointly train index and query encoder (always has a better performance):**  
 (need embeddings and a query encoder)
 ```

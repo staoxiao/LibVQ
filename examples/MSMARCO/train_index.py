@@ -35,8 +35,15 @@ if __name__ == '__main__':
     train_query_embeddings = train_query_embeddings.reshape(-1, emb_size)
 
     # Create Index
+    # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
+    # if no, it will creat and save a faiss index in init_index_file
     learnable_index = LearnableIndex(index_method=index_args.index_method,
-                                     index_file=os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
+                                     init_index_file=os.path.join(data_args.output_dir, f'{index_args.index_method}.index'),
+                                     doc_embeddings=doc_embeddings,
+                                     ivf_centers_num=index_args.ivf_centers_num,
+                                     subvector_num=index_args.subvector_num,
+                                     subvector_bits=index_args.subvector_bits)
+
 
     # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
     neg_file = os.path.join(data_args.output_dir, f"train-queries_hardneg.pickle")

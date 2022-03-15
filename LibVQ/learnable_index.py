@@ -30,9 +30,9 @@ from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 class LearnableIndex(FaissIndex):
     def __init__(self,
                  index_method: str,
-                 encoder: Type[Encoder] = None,
-                 config: Type[IndexConfig] = None,
-                 index_file: str = None,
+                 encoder: Encoder = None,
+                 config: IndexConfig = None,
+                 init_index_file: str = None,
                  emb_size: int = 768,
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
@@ -55,7 +55,7 @@ class LearnableIndex(FaissIndex):
         """
         super(LearnableIndex).__init__()
 
-        if index_file is None or not os.path.exists(index_file):
+        if init_index_file is None or not os.path.exists(init_index_file):
             logging.info(f"generating the init index by faiss")
             self.index = FaissIndex(doc_embeddings=doc_embeddings,
                                     emb_size=emb_size,
@@ -65,16 +65,16 @@ class LearnableIndex(FaissIndex):
                                     index_method=index_method,
                                     dist_mode=dist_mode)
 
-            if index_file is None:
+            if init_index_file is None:
                 index_file = f'./temp/{index_method}.index'
                 os.makedirs('./temp', exist_ok=True)
-            logging.info(f"save the init index to {index_file}")
-            self.index.save_index(index_file)
+            logging.info(f"save the init index to {init_index_file}")
+            self.index.save_index(init_index_file)
         else:
-            logging.info(f"loading the init index from {index_file}")
-            self.index = faiss.read_index(index_file)
+            logging.info(f"loading the init index from {init_index_file}")
+            self.index = faiss.read_index(init_index_file)
 
-        self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=index_file, index_method=index_method)
+        self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=init_index_file, index_method=index_method)
 
     def update_encoder(self, encoder_file=None, saved_ckpts_path=None):
         if encoder_file is None:
