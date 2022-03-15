@@ -158,5 +158,4 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 Faiss-PQ | 0.1145 | 0. 2369 | 0.5046 |  
 Faiss-OPQ | 0.3268 | 0.5939 | 0.8651 |    
 LearnableIndex(distill_jointly) | **0.3437** | **0.6201** | **0.8819** |  
-LearnableIndex(distill_jointly_v2) | **0.3437** | **0.6201** | **0.8819** |  
 
