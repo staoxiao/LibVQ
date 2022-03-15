@@ -113,7 +113,7 @@ learnable_index.fit(model=learnable_index.learnable_vq,
                     doc_embeddings=doc_embeddings,
                     checkpoint_path='./saved_ckpts/test_model/',
                     epochs=5,
-                    lr_params={'encoder_lr': 1e-4, 'pq_lr': 1e-6, 'ivf_lr': 1e-6},
+                    lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                     loss_method='distill',
                     fix_emb='doc')
 
