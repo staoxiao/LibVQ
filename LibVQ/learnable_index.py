@@ -338,6 +338,8 @@ class LearnableIndex(FaissIndex):
                                                                             cross_device_sample=cross_device_sample,
                                                                             **sample)
 
+                    # loss_weight is a import hyper-parameter when jointly training
+                    # you should make these losses close to each other
                     if isinstance(loss_weight['ivf_weight'], str):
                         if use_ivf:
                             if loss_weight['ivf_weight'] == 'scaled_to_pqloss':

@@ -10,8 +10,6 @@ Then convert and preprocess them to the format which is need for our dataset cla
 ```
 python convert_data_format.py
 ```
- or you can rewrite the `torch.nn.utils.data.Dataset` for your data.
-
 
 ## Generate Embeddings
 We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
@@ -122,7 +120,7 @@ LearnableIndex(distill_virtual-data_jointly) | 0.3285 | 0.5875 | 0.8401 |
 
 
 ## PQ
-+ ###Index
++ ### Index      
 For PQ, you can reuse above commands and only change the `--index_method` to `pq` or `opq`.
 For example:
 ```
