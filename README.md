@@ -35,11 +35,11 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 Faiss-IVFPQ | 0.1380 | 0.2820 | 0.5617 |  
 Faiss-IVFOPQ | 0.3102 | 0.5593 | 0.8148 |  
 Scann | 0.1791 | 0.3499 | 0.6345 | 
-LearnableIndex(contrastive_index) | 0.3179 | 0.5724 | 0.8214 | 
-LearnableIndex(distill_index) | 0.3253 | 0.5765 | 0.8256 | 
-LearnableIndex(contrastive_jointly) | 0.3192 | 0.5799 | 0.8427 |  
-LearnableIndex(distill_jointly) | **0.3311** | **0.5907** | **0.8429** |  
-LearnableIndex(distill_virtual-data_jointly) | 0.3285 | 0.5875 | 0.8401 | 
+LibVQ(contrastive_index) | 0.3179 | 0.5724 | 0.8214 | 
+LibVQ(distill_index) | 0.3253 | 0.5765 | 0.8256 | 
+LibVQ(contrastive_index-and-query-encoder) | 0.3192 | 0.5799 | 0.8427 |  
+LibVQ(distill_index-and-query-encoder) | **0.3311** | **0.5907** | **0.8429** |  
+LibVQ(distill_index-and-query-encoder_nolabel) | 0.3285 | 0.5875 | 0.8401 | 
 
 - PQ
 
@@ -47,8 +47,8 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 ------- | ------- | ------- |  ------- | 
 Faiss-PQ | 0.1145 | 0.2369 | 0.5046 |  
 Faiss-OPQ | 0.3268 | 0.5939 | 0.8651 |    
-LearnableIndex(distill_jointly) | 0.3437 | 0.6201 | 0.8819 | 
-LearnableIndex(distill_jointly_v2) | **0.3475** | **0.6223** | **0.8901** |  
+LibVQ(distill_index-and-query-encoder) | 0.3437 | 0.6201 | 0.8819 | 
+LibVQ(distill_index-and-two-encoders) | **0.3475** | **0.6223** | **0.8901** |  
 
 More details please refer to [examples/MSMARCO](./examples/MSMARCO/).  
 

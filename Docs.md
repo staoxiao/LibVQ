@@ -45,7 +45,8 @@ You can use them to update the index and get better performance than transitiona
 you can get a origin faiss index by `index = LearnableIndex.index`, and apply faiss operations to it.**
 
 
-## Train Index
+## A. Training
+### - Only train index
 **1.  Prepare embedding**  
 LibVQ needs two sets of vectors: one is docs' embeddings, containing all embeddings that you are going to search in;
 and the other is the queries' embeddings. 
@@ -77,23 +78,11 @@ learnable_index.fit(model = learnable_index.learnable_vq,
 ```
 For distributed training on multi GPUs, you cans use `fit_with_multi_gpus`.  
 
-**4. Update index**  
-After training, you can select a set of trained parameters to update the index:
-```python
-learnable_index.update_index_with_ckpt(saved_ckpts_path = './temp/')
-```
 
-
-**5. Search**  
-```python
-scores, ann_items = faiss_index.search(query_embeddings = query_embeddings,
-                                       topk = 100,
-                                       nprobe = 10)
-```
 **Please refer to example: [MSMARCO/train_index](examples/MSMARCO/train_index.py) for more information**
 
 
-## Jointly train Index and Encoder
+### - Jointly train Index and Encoder
 **We recommend to jointly train the encoder and index, which can get the best performance.**  
 **1. Prepare encoder and data**  
 For this method, you should prepare a trained encoder and the text data:
@@ -151,43 +140,41 @@ learnable_index.fit(model = learnable_index.learnable_vq,
                     fix_emb = 'doc'                  # you can select to train the query encoder or train both query and doc encoder.
                     )
 ```
+**Please refer to example: [MSMARCO/train_index_and_encoder](examples/MSMARCO/train_index_and_encoder.py) for more information**
 
-**4. Update index and embeddings**  
 
 
-Besides updating the index, the encoder and query/doc embeddings also need to updated:
+## B. Update Index and Test
+**1. Update embeddings**  
+This step is needed only when you jointly the index and encoder.
 ```python
-learnable_index.update_encoder(saved_ckpts_path = './temp/')
-learnable_index.encode(data_dir = preprocess_dir,
+learnable_index.update_encoder(saved_ckpts_path = './temp/') # update encoder
+learnable_index.encode(data_dir = preprocess_dir,            # update query embeddings
                        prefix = 'dev-queries',
                        max_length = max_query_length,
                        output_dir = output_dir,
                        batch_size = 8196,
                        is_query = True,
                        )
-new_query_embeddings = np.memmap(f'{output_dir}/dev-queries.memmap', dtype=np.float32, mode="r")
-new_query_embeddings = new_query_embeddings.reshape(-1, emb_size)
+query_embeddings = np.memmap(f'{output_dir}/dev-queries.memmap', dtype=np.float32, mode="r")
+query_embeddings = new_query_embeddings.reshape(-1, emb_size)
 
-# if you re-train the doc encoder, generate the doc embeddings 
-# new_doc_embeddings = ... 
+# if you re-train the doc encoder, generate the new doc embeddings 
+# doc_embeddings = ... 
+```
 
+**4. Update index**  
+After training, you can select a set of trained parameters to update the index:
+```python
 learnable_index.update_index_with_ckpt(saved_ckpts_path = './temp/', doc_embeddings = doc_embeddings)
 ```
 
-
 **5. Search**  
-
 ```python
-scores, ann_items = faiss_index.search(query_embeddings = new_query_embeddings,
+scores, ann_items = faiss_index.search(query_embeddings = query_embeddings,
                                        topk = 100,
                                        nprobe = 10)
 ```
-
-**Please refer to example: [MSMARCO/train_index_and_encoder](examples/MSMARCO/train_index_and_encoder.py) for more information**
-
-
-
-
 
 
 
