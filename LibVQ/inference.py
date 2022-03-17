@@ -37,15 +37,16 @@ def inference_dataset(encoder: Encoder,
         drop_last=False,
     )
 
-    encoder = encoder.cuda()
-    if dataparallel:
+    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+    encoder = encoder.to(device)
+    if dataparallel and torch.cuda.is_available():
         encoder = torch.nn.DataParallel(encoder)
     encoder.eval()
     write_index = 0
     for step, data in enumerate(tqdm(dataloader, total=len(dataloader))):
         input_ids, attention_mask = data
-        input_ids = input_ids.cuda()
-        attention_mask = attention_mask.cuda()
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
 
         with torch.no_grad():
             logits = encoder(input_ids=input_ids, attention_mask=attention_mask,

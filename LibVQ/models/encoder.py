@@ -2,11 +2,28 @@ import torch
 from torch import nn
 from transformers import AutoModel
 from transformers import AutoConfig
-import torch.distributed as dist
 
 class EncoderConfig(AutoConfig):
     def __init__(self):
         super(EncoderConfig).__init__()
+
+
+class BaseEncoder(nn.Module):
+    def query_emb(self, input_ids, attention_mask):
+        raise NotImplementedError
+
+    def doc_emb(self, input_ids, attention_mask):
+        raise NotImplementedError
+
+    def forward(self, input_ids, attention_mask, is_query):
+        if is_query:
+            return self.query_emb(input_ids, attention_mask)
+        else:
+            return self.doc_emb(input_ids, attention_mask)
+
+    def save(self, save_file):
+        torch.save(self.state_dict(), save_file)
+
 
 class Encoder(nn.Module):
     def __init__(self, config):
@@ -47,8 +64,6 @@ class Encoder(nn.Module):
         else:
             return self.doc_emb(input_ids, attention_mask)
 
-    def save(self, save_file):
-        torch.save(self.state_dict(), save_file)
 
 
 

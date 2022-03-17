@@ -12,6 +12,7 @@ class IVF_CPU(nn.Module):
         self.center_vecs = center_vecs
         self.id2center = id2center
         self.center_grad = np.zeros_like(center_vecs)
+        self.ivf_centers_num = len(center_vecs)
 
     @classmethod
     def from_faiss_index(cls, index_file):

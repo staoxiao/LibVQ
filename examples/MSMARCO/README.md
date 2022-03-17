@@ -10,6 +10,7 @@ Then convert and preprocess them to the format which is need for our dataset cla
 ```
 python convert_data_format.py
 ```
+The data will be saved into `./data/passage/dataset`.
 
 ## Generate Embeddings
 We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
