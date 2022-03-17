@@ -163,13 +163,13 @@ query_embeddings = new_query_embeddings.reshape(-1, emb_size)
 # doc_embeddings = ... 
 ```
 
-**4. Update index**  
+**2. Update index**  
 After training, you can select a set of trained parameters to update the index:
 ```python
 learnable_index.update_index_with_ckpt(saved_ckpts_path = './temp/', doc_embeddings = doc_embeddings)
 ```
 
-**5. Search**  
+**3. Search**  
 ```python
 scores, ann_items = faiss_index.search(query_embeddings = query_embeddings,
                                        topk = 100,
