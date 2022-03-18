@@ -21,15 +21,17 @@ def inference_dataset(encoder: Encoder,
                       batch_size: int,
                       enable_rewrite: bool = True,
                       dataparallel: bool = True,
-                      return_vecs: bool = False):
+                      return_vecs: bool = False,
+                      save_to_memmap: bool = True):
 
     if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
         print(f"{output_file}_finished.flag exists, skip inference")
         return
     if os.path.exists(output_file): os.remove(output_file)
 
-    if return_vecs: vecs = []
-    output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
+    if return_vecs or not save_to_memmap: vecs = []
+    if save_to_memmap: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
+
     dataloader = DataLoader(
         dataset,
         sampler=SequentialSampler(dataset),
@@ -52,14 +54,18 @@ def inference_dataset(encoder: Encoder,
             logits = encoder(input_ids=input_ids, attention_mask=attention_mask,
                              is_query=is_query).detach().cpu().numpy()
 
-        write_size = len(logits)
-        output_memmap[write_index:write_index + write_size] = logits
-        write_index += write_size
+        if save_to_memmap:
+            write_size = len(logits)
+            output_memmap[write_index:write_index + write_size] = logits
+            write_index += write_size
 
-        if return_vecs: vecs.extend(logits)
+        if return_vecs or not save_to_memmap: vecs.extend(logits)
 
+    if save_to_memmap:
+        assert write_index == len(output_memmap)
+    else:
+        np.save(output_file, np.array(vecs))
     open(output_file + '_finished.flag', 'w')
-    assert write_index == len(output_memmap)
 
     if return_vecs: return vecs
 
@@ -72,15 +78,21 @@ def inference(data_dir: str,
               batch_size: int,
               enable_rewrite: bool = True,
               dataparallel: bool = True,
-              return_vecs: bool = False
+              return_vecs: bool = False,
+              save_to_memmap: bool = True
               ):
     dataset = DatasetForEncoding(data_dir=data_dir, prefix=prefix, max_length=max_length)
+
+    if save_to_memmap: output_file = os.path.join(output_dir, f"{prefix}.memmap")
+    else: output_file = os.path.join(output_dir, f"{prefix}")
+
     return inference_dataset(encoder=encoder,
                              dataset=dataset,
                              is_query=is_query,
-                             output_file=os.path.join(output_dir, f"{prefix}.memmap"),
+                             output_file=output_file,
                              batch_size=batch_size,
                              enable_rewrite=enable_rewrite,
                              dataparallel=dataparallel,
-                             return_vecs=return_vecs)
+                             return_vecs=return_vecs,
+                             save_to_memmap=save_to_memmap)
 

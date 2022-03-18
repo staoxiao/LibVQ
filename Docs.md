@@ -92,6 +92,7 @@ for the data format, or you can overwrite the [DatasetForVQ](./LibVQ/dataset/dat
 
 Save the data to `data_dir`, you need to preprocess it:
 ```python
+from LibVQ.dataset import preprocess_data
 preprocess_data(data_dir=data_dir,
                 output_dir=preprocess_dir,
                 tokenizer_name=pretrained_model_name,
@@ -102,10 +103,11 @@ preprocess_data(data_dir=data_dir,
 
 If you has no embeddings, you can generate it by:
 ```python
+from LibVQ.inference import inference
 inference(data_dir = preprocess_dir,
           is_query = is_query,
           encoder = encoder,
-          prefix = f'docs',
+          prefix = f'docs', # 'docs', 'train-queries', 'dev-queries', 'test-queries'
           max_length = max_length,
           output_dir = output_dir,
           batch_size = 10240)
