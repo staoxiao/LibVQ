@@ -1,15 +1,15 @@
 import os
+
 import numpy as np
-import faiss
 import torch
-from transformers import HfArgumentParser
-from transformers import DPRContextEncoder, DPRQuestionEncoder, AutoConfig, DPRContextEncoderTokenizer
-
-from LibVQ.inference import inference
-from LibVQ.models import Encoder, EncoderConfig
-from LibVQ.dataset.preprocess import preprocess_data
-
 from arguments import DataArguments, ModelArguments
+from transformers import DPRContextEncoder, DPRQuestionEncoder, AutoConfig
+from transformers import HfArgumentParser
+
+from LibVQ.dataset.preprocess import preprocess_data
+from LibVQ.inference import inference
+from LibVQ.models import Encoder
+
 
 class DPR_Encoder(torch.nn.Module):
     def __init__(self, encoder):
@@ -44,14 +44,13 @@ if __name__ == '__main__':
     # text_encoder = Encoder(config)
     # emb_size = text_encoder.output_embedding_size
 
-
     doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
     query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
     config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
     emb_size = config.hidden_size
 
-    text_encoder = Encoder(query_encoder = query_encoder,
-                           doc_encoder = doc_encoder)
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
 
     # Generate embeddings of queries and docs
     inference(data_dir=data_args.preprocess_dir,
@@ -79,7 +78,6 @@ if __name__ == '__main__':
               batch_size=10240,
               enable_rewrite=False)
 
-
     # you can load the generated embeddings as following:
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
                                dtype=np.float32, mode="r")
@@ -87,6 +85,3 @@ if __name__ == '__main__':
     query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)
-
-
-

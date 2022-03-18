@@ -1,17 +1,20 @@
-import os
-import multiprocessing as mp
-from tqdm import tqdm
-import numpy as np
-import pickle
 import json
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
+import multiprocessing as mp
+import os
+import pickle
+from typing import Dict
+
+import numpy as np
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 tokenizer = None
 max_seq_length = None
 
+
 def count_line(path: str):
     return sum(1 for _ in open(path))
+
 
 def data_generator(path: str):
     with open(path, 'rt') as f:
@@ -19,6 +22,7 @@ def data_generator(path: str):
         while line:
             yield line[:-1]
             line = f.readline()
+
 
 class MpTokenizer:
     def __init__(self):
@@ -63,14 +67,15 @@ class MpTokenizer:
                         pbar.total = self.total
 
         assert len(token_length_array) == total_line_num
-        pickle.dump(id2offset, open(output_file+"_id2offset.pickle", 'wb'))
-        np.save(output_file+'_length', np.array(token_length_array))
+        pickle.dump(id2offset, open(output_file + "_id2offset.pickle", 'wb'))
+        np.save(output_file + '_length', np.array(token_length_array))
         meta = {'type': 'int32', 'total_number': total_line_num,
                 'max_seq_length': max_seq_length}
         with open(output_file + "_meta", 'w') as f:
             json.dump(meta, f)
 
         return id2offset
+
 
 def job(line):
     line = line.split('\t')
@@ -91,6 +96,7 @@ def job(line):
 def init():
     return
 
+
 def tokenize_data(input_file: str,
                   output_file: str,
                   tokenizer_name: str,
@@ -104,6 +110,7 @@ def tokenize_data(input_file: str,
                               workers_num=workers_num)
     return id2offset
 
+
 def offset_rel(rel_file: str,
                output_offset_rel: str,
                did2offset: Dict,
@@ -112,7 +119,8 @@ def offset_rel(rel_file: str,
         for line in open(rel_file):
             qid, did = line.strip('\n').split('\t')
             new_qid, new_did = qid2offset[int(qid)], did2offset[int(did)]
-            f.write(str(new_qid)+'\t'+str(new_did)+'\n')
+            f.write(str(new_qid) + '\t' + str(new_did) + '\n')
+
 
 def preprocess_data(data_dir: str,
                     output_dir: str,
@@ -125,7 +133,8 @@ def preprocess_data(data_dir: str,
 
     docs_file = os.path.join(data_dir, 'collection.tsv')
     output_docs_file = os.path.join(output_dir, 'docs')
-    did2offset = tokenize_data(docs_file, output_docs_file, workers_num=workers_num, tokenizer_name=tokenizer_name, max_length=max_doc_length)
+    did2offset = tokenize_data(docs_file, output_docs_file, workers_num=workers_num, tokenizer_name=tokenizer_name,
+                               max_length=max_doc_length)
 
     for file in os.listdir(data_dir):
         if 'queries' in file:
@@ -137,11 +146,11 @@ def preprocess_data(data_dir: str,
                 raise
 
             output_query_file = os.path.join(output_dir, f'{prefix}-queries')
-            qid2offset = tokenize_data(query_file, output_query_file, workers_num=workers_num, tokenizer_name=tokenizer_name, max_length=max_query_length)
+            qid2offset = tokenize_data(query_file, output_query_file, workers_num=workers_num,
+                                       tokenizer_name=tokenizer_name, max_length=max_query_length)
 
             output_offset_rel = os.path.join(output_dir, f'{prefix}-rels.tsv')
             offset_rel(rel_file=rel_file,
                        output_offset_rel=output_offset_rel,
                        qid2offset=qid2offset,
                        did2offset=did2offset)
-

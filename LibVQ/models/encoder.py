@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from transformers import AutoModel
 from transformers import AutoConfig
+
 
 class EncoderConfig(AutoConfig):
     def __init__(self):
@@ -25,11 +25,10 @@ class BaseEncoder(nn.Module):
         torch.save(self.state_dict(), save_file)
 
 
-
 class Encoder(BaseEncoder):
     def __init__(self,
-                 query_encoder = None,
-                 doc_encoder = None):
+                 query_encoder=None,
+                 doc_encoder=None):
         nn.Module.__init__(self)
         self.query_encoder = query_encoder
         self.doc_encoder = doc_encoder
@@ -47,8 +46,3 @@ class Encoder(BaseEncoder):
             return self.query_emb(input_ids, attention_mask)
         else:
             return self.doc_emb(input_ids, attention_mask)
-
-
-
-
-

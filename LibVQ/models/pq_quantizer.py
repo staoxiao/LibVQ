@@ -1,9 +1,11 @@
-import torch
-from torch import nn
-import torch.nn.functional as F
+import os
+
 import faiss
 import numpy as np
-import os
+import torch
+import torch.nn.functional as F
+from torch import nn
+
 
 class Quantization(nn.Module):
     def __init__(self, emb_size=768, subvector_num=96, subvector_bits=8, rotate=None, codebook=None):
@@ -15,7 +17,7 @@ class Quantization(nn.Module):
             self.codebook = nn.Parameter(torch.FloatTensor(codebook), requires_grad=True)
         else:
             self.codebook = nn.Parameter(
-                torch.empty(subvector_num, 2**subvector_bits,
+                torch.empty(subvector_num, 2 ** subvector_bits,
                             emb_size // subvector_num).uniform_(-0.1, 0.1)).type(
                 torch.FloatTensor)
 

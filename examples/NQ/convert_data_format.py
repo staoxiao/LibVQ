@@ -1,7 +1,9 @@
-import json
-from tqdm import tqdm
 import csv
+import json
 import os
+
+from tqdm import tqdm
+
 
 def get_collection(file):
     with open('./data/NQ/dataset/collection.tsv', 'w', encoding='utf-8') as fout:
@@ -10,9 +12,10 @@ def get_collection(file):
             for k, row in enumerate(reader):
                 if not row[0] == 'id':
                     try:
-                        fout.write(str(int(row[0]) - 1) +'\t' +row[2] +'\t'+row[1]+'\n')
+                        fout.write(str(int(row[0]) - 1) + '\t' + row[2] + '\t' + row[1] + '\n')
                     except:
                         print(f'The following input line has not been correctly loaded: {row}')
+
 
 def get_train(file):
     fquery = open('./data/NQ/dataset/train-queries.tsv', 'w', encoding='utf-8')
@@ -25,12 +28,12 @@ def get_train(file):
         query = query.replace("’", "'")
         positives = item['positive_ctxs']
 
-        fquery.write(str(qid)+'\t'+query+'\n')
+        fquery.write(str(qid) + '\t' + query + '\n')
 
         for p in positives:
-            pid  = p['passage_id']
-            pid = str(int(pid)-1)
-            frel.write(str(qid)+'\t'+pid +'\n')
+            pid = p['passage_id']
+            pid = str(int(pid) - 1)
+            frel.write(str(qid) + '\t' + pid + '\n')
 
         qid += 1
 

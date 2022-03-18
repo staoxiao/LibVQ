@@ -1,6 +1,6 @@
-import scann
 import time
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
+
+import scann
 
 from LibVQ.baseindex.BaseIndex import BaseIndex
 
@@ -15,9 +15,10 @@ class ScaNNIndex(BaseIndex):
         BaseIndex.__init__(self, )
 
         self.index = scann.scann_ops_pybind.builder(doc_embeddings, 100, "dot_product").tree(
-             num_leaves=ivf_centers_num, num_leaves_to_search=1,
-             training_sample_size=min(len(doc_embeddings), ivf_centers_num * 256)).score_ah(
-             len(doc_embeddings[0]) // subvector_num, anisotropic_quantization_threshold=anisotropic_quantization_threshold, hash_type=hash_type).build()
+            num_leaves=ivf_centers_num, num_leaves_to_search=1,
+            training_sample_size=min(len(doc_embeddings), ivf_centers_num * 256)).score_ah(
+            len(doc_embeddings[0]) // subvector_num,
+            anisotropic_quantization_threshold=anisotropic_quantization_threshold, hash_type=hash_type).build()
         # self.index.set_n_training_threads(threads_num)
 
     def search(self,

@@ -1,17 +1,18 @@
 import logging
-import numpy
 import os
 import sys
-import torch
 import traceback
 from pathlib import Path
+from typing import List, Dict, Type, Union
+
+import numpy
+import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.autonotebook import trange
-from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ
 from LibVQ.learnable_vq import LearnableVQ
@@ -90,7 +91,8 @@ def train_model(
                         not any(nd in n for nd in no_decay) and not any(nd in n for nd in pq_parameter)],
              'weight_decay': weight_decay,
              "lr": lr_params['encoder_lr']},
-            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay) and not any(nd in n for nd in pq_parameter)],
+            {'params': [p for n, p in param_optimizer if
+                        any(nd in n for nd in no_decay) and not any(nd in n for nd in pq_parameter)],
              'weight_decay': 0.0,
              "lr": lr_params['encoder_lr']},
             {
@@ -102,7 +104,7 @@ def train_model(
 
         optimizer = optimizer_class(optimizer_grouped_parameters)
         scheduler = get_linear_schedule_with_warmup(
-            optimizer, num_warmup_steps= int(warmup_steps_ratio * num_train_steps), num_training_steps=num_train_steps
+            optimizer, num_warmup_steps=int(warmup_steps_ratio * num_train_steps), num_training_steps=num_train_steps
         )
 
         if world_size > 1:
@@ -135,7 +137,8 @@ def train_model(
                             weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
                         elif loss_weight['ivf_weight'] == 'scaled_to_denseloss':
                             weight = batch_dense_loss / (batch_ivf_loss + 1e-6)
-                        else: raise RuntimeError \
+                        else:
+                            raise RuntimeError \
                                 ("loss_weight['ivf_weight'] should be in ['scaled_to_pqloss', 'scaled_to_denseloss']")
                         if world_size > 1:
                             weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
@@ -202,7 +205,6 @@ def train_model(
                         else:
                             model.save(ckpt_path)
                         logging.info(f"model saved to {ckpt_path}")
-
 
             if local_rank == 0 or local_rank == -1:
                 ckpt_path = os.path.join(checkpoint_path, f'epoch_{epoch}_step_{global_step}')

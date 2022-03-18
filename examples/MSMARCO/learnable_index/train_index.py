@@ -1,25 +1,23 @@
 import os
-import torch
-import numpy as np
-import faiss
 import pickle
+
+import faiss
+import numpy as np
 from transformers import HfArgumentParser, AdamW
 
+from LibVQ.baseindex import FaissIndex
 from LibVQ.dataset.dataset import load_rel, write_rel
 from LibVQ.learnable_index import LearnableIndex
-from LibVQ.baseindex import FaissIndex
 from LibVQ.utils import setuplogging
 
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 
 faiss.omp_set_num_threads(32)
 
-
 if __name__ == '__main__':
     setuplogging()
     parser = HfArgumentParser((IndexArguments, DataArguments, ModelArguments, TrainingArguments))
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
-
 
     # Load embeddings of queries and docs
     emb_size = 768
@@ -38,28 +36,30 @@ if __name__ == '__main__':
     # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
     # if no, it will creat and save a faiss index in init_index_file
     learnable_index = LearnableIndex(index_method=index_args.index_method,
-                                     init_index_file=os.path.join(data_args.output_dir, f'{index_args.index_method}.index'),
+                                     init_index_file=os.path.join(data_args.output_dir,
+                                                                  f'{index_args.index_method}.index'),
                                      doc_embeddings=doc_embeddings,
                                      ivf_centers_num=index_args.ivf_centers_num,
                                      subvector_num=index_args.subvector_num,
                                      subvector_bits=index_args.subvector_bits)
 
-
     # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
     neg_file = os.path.join(data_args.output_dir, f"train-queries_hardneg.pickle")
     if not os.path.exists(neg_file):
         train_ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'train-rels.tsv'))
-        trainquery2hardneg = learnable_index.hard_negative(train_query_embeddings, train_ground_truths, topk=400, batch_size=64)
+        trainquery2hardneg = learnable_index.hard_negative(train_query_embeddings, train_ground_truths, topk=400,
+                                                           batch_size=64)
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
 
     # contrastive learning
     if training_args.training_mode == 'contrastive_index':
         data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-                                            neg_file=os.path.join(data_args.output_dir, f"train-queries_hardneg.pickle"),
+                                            neg_file=os.path.join(data_args.output_dir,
+                                                                  f"train-queries_hardneg.pickle"),
                                             query_embeddings_file=data_args.query_embeddings_file,
                                             doc_embeddings_file=data_args.doc_embeddings_file,
-                                            emb_size = emb_size,
+                                            emb_size=emb_size,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
@@ -67,21 +67,22 @@ if __name__ == '__main__':
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
                                             optimizer_class=AdamW,
-                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
+                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                                         'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='contras',
                                             fix_emb='query, doc',
                                             epochs=16)
 
-
     # distill based on fixed embeddigns of queries and docs
     if training_args.training_mode == 'distill_index':
         data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-                                            neg_file=os.path.join(data_args.output_dir, f"train-queries_hardneg.pickle"),
+                                            neg_file=os.path.join(data_args.output_dir,
+                                                                  f"train-queries_hardneg.pickle"),
                                             query_embeddings_file=data_args.query_embeddings_file,
                                             doc_embeddings_file=data_args.doc_embeddings_file,
-                                            emb_size = emb_size,
+                                            emb_size=emb_size,
                                             per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
@@ -90,12 +91,12 @@ if __name__ == '__main__':
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
                                             optimizer_class=AdamW,
-                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
+                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                                         'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='query, doc',
                                             epochs=30)
-
 
     # distill with no label data
     if training_args.training_mode == 'distill_virtual-data_index':
@@ -107,18 +108,19 @@ if __name__ == '__main__':
             #                                                                                        topk=400, batch_size=64)
             # or
             query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
-                                                                                                   topk=400, batch_size=64)
+                                                                              topk=400, batch_size=64)
 
             write_rel(os.path.join(data_args.output_dir, 'train-virtual_rel.tsv'), query2pos)
-            pickle.dump(query2neg, open(os.path.join(data_args.output_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
-
+            pickle.dump(query2neg,
+                        open(os.path.join(data_args.output_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
         data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.output_dir, 'train-virtual_rel.tsv'),
-                                            neg_file=os.path.join(data_args.output_dir, f"train-queries-virtual_hardneg.pickle"),
+                                            neg_file=os.path.join(data_args.output_dir,
+                                                                  f"train-queries-virtual_hardneg.pickle"),
                                             query_embeddings_file=data_args.query_embeddings_file,
                                             doc_embeddings_file=data_args.doc_embeddings_file,
-                                            emb_size = emb_size,
+                                            emb_size=emb_size,
                                             per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
@@ -127,13 +129,12 @@ if __name__ == '__main__':
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
                                             optimizer_class=AdamW,
-                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 'scaled_to_pqloss'},
+                                            loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                                         'ivf_weight': 'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='query, doc',
                                             epochs=30)
-
-
 
     # select a latest ckpt
     # ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)

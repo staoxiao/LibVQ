@@ -1,16 +1,14 @@
 import os
-import numpy as np
+
 import faiss
-import torch
+import numpy as np
+from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
+from evaluate import validate, load_test_data
 from transformers import HfArgumentParser
 
 from LibVQ.baseindex import FaissIndex
-from LibVQ.dataset.dataset import load_rel
-
-from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 
 faiss.omp_set_num_threads(32)
-
 
 if __name__ == '__main__':
     parser = HfArgumentParser((IndexArguments, DataArguments, ModelArguments, TrainingArguments))
@@ -42,6 +40,9 @@ if __name__ == '__main__':
     # index.load_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
 
     # Test the performance
-    ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))
-    index.test(query_embeddings, ground_truths, topk=1000, batch_size=64,
-               MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100], nprobe=index_args.nprobe)
+    scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)
+
+    test_questions, test_answers, passage_text = load_test_data(
+        query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
+        collections_file='./data/NQ/dataset/collection.tsv')
+    validate(ann_items, test_questions, test_answers, passage_text)

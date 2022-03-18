@@ -1,15 +1,16 @@
 import os
+from typing import List, Type
+
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
-import torch.distributed as dist
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
 from LibVQ.baseindex import IndexConfig
-from LibVQ.models import Encoder
 from LibVQ.models import IVF_CPU
 from LibVQ.models import Quantization
 from LibVQ.utils import dist_gather_tensor
+
 
 class LearnableVQ(nn.Module):
     def __init__(self,
@@ -106,7 +107,7 @@ class LearnableVQ(nn.Module):
             quantized_doc = self.pq.quantization(residual_doc_vecs) + dc_emb
             quantized_neg = self.pq.quantization(residual_neg_vecs) + nc_emb
         else:
-            dc_emb, nc_emb  = None, None
+            dc_emb, nc_emb = None, None
             quantized_doc = self.pq.quantization(rotate_doc_vecs)
             quantized_neg = self.pq.quantization(rotate_neg_vecs)
 
@@ -132,7 +133,7 @@ class LearnableVQ(nn.Module):
         pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score,
-                                                          loss_method = loss_method)
+                                                          loss_method=loss_method)
         return dense_loss, ivf_loss, pq_loss
 
     def dist_gather_tensor(self, vecs):

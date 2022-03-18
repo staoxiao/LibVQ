@@ -1,31 +1,24 @@
-import faiss
 import logging
+import os
+import pickle
+import time
+from typing import List, Dict, Type, Union
+
+import faiss
 import numpy
 import numpy as np
-import os
-import sys
-import pickle
 import torch
-import torch.distributed as dist
 import torch.multiprocessing as mp
-import traceback
-from pathlib import Path
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
-from torch.utils.data import RandomSampler, DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from tqdm.autonotebook import trange
-from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
-import time
+from transformers import AdamW
 
 from LibVQ.baseindex import FaissIndex, IndexConfig
-from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ, preprocess_data, write_rel, load_rel
+from LibVQ.dataset import DatasetForVQ, write_rel
 from LibVQ.inference import inference
 from LibVQ.learnable_vq import LearnableVQ
 from LibVQ.models import Encoder
-from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 from LibVQ.train import train_model
+
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
@@ -151,15 +144,14 @@ class LearnableIndex(FaissIndex):
                return_vecs: bool = False):
         os.makedirs(output_dir, exist_ok=True)
         vecs = inference(data_dir=data_dir,
-                  is_query=is_query,
-                  encoder=self.learnable_vq.encoder,
-                  prefix=prefix,
-                  max_length=max_length,
-                  output_dir=output_dir,
-                  batch_size=batch_size,
-                  return_vecs=return_vecs)
+                         is_query=is_query,
+                         encoder=self.learnable_vq.encoder,
+                         prefix=prefix,
+                         max_length=max_length,
+                         output_dir=output_dir,
+                         batch_size=batch_size,
+                         return_vecs=return_vecs)
         return vecs
-
 
     def get_temp_checkpoint_save_path(self):
         time_str = time.strftime('%m_%d-%H-%M-%S', time.localtime(time.time()))
@@ -204,7 +196,7 @@ class LearnableIndex(FaissIndex):
             checkpoint_path: str = None,
             checkpoint_save_steps: int = None,
             logging_steps: int = 100,
-    ):
+            ):
         if checkpoint_save_steps is None:
             checkpoint_path = self.get_temp_checkpoint_save_path()
             logging.info(f"The model will be saved into {checkpoint_path}")
@@ -215,7 +207,8 @@ class LearnableIndex(FaissIndex):
         if rel_data is None:
             # generate train data
             logging.info("generating relevance data...")
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.learnable_vq.ivf.ivf_centers_num)
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
+                                                                 nprobe=self.learnable_vq.ivf.ivf_centers_num)
 
         train_model(model=self.learnable_vq,
                     dataset=dataset,
@@ -248,24 +241,23 @@ class LearnableIndex(FaissIndex):
         if 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
-            self.update_encoder(saved_ckpts_path = checkpoint_path)
+            self.update_encoder(saved_ckpts_path=checkpoint_path)
 
         if 'doc' not in fix_emb:
             # update doc_embeddings
             logging.info(f"updating doc embeddings and saving it to {checkpoint_path}")
             doc_embeddings = self.encode(data_dir=doc_data_dir,
-                       prefix='docs',
-                       max_length=max_doc_length,
-                       output_dir=checkpoint_path,
-                       batch_size=8196,
-                       is_query=False,
-                       return_vecs=True
-                       )
+                                         prefix='docs',
+                                         max_length=max_doc_length,
+                                         output_dir=checkpoint_path,
+                                         batch_size=8196,
+                                         is_query=False,
+                                         return_vecs=True
+                                         )
 
         # update index
         self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
                                     doc_embeddings=doc_embeddings)
-
 
     def fit_with_multi_gpus(
             self,
@@ -312,7 +304,8 @@ class LearnableIndex(FaissIndex):
             logging.info("generating relevance data...")
             query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
             doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.learnable_vq.ivf.ivf_centers_num)
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
+                                                                 nprobe=self.learnable_vq.ivf.ivf_centers_num)
 
             logging.info(f"saving relevance data to {checkpoint_path}...")
             rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')
@@ -357,7 +350,7 @@ class LearnableIndex(FaissIndex):
         if 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
-            self.update_encoder(saved_ckpts_path = checkpoint_path)
+            self.update_encoder(saved_ckpts_path=checkpoint_path)
 
         if 'doc' not in fix_emb:
             # update doc_embeddings
@@ -379,5 +372,5 @@ class LearnableIndex(FaissIndex):
                 doc_embeddings = np.load(doc_embeddings_file)
 
         # update index
-        self.update_index_with_ckpt(saved_ckpts_path = checkpoint_path,
-                                    doc_embeddings = doc_embeddings)
+        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                    doc_embeddings=doc_embeddings)

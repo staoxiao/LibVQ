@@ -1,15 +1,15 @@
 import json
-import logging
-import numpy
-import numpy as np
 import os
 import pickle
 import random
-import torch
 from collections import defaultdict
+from typing import List, Union, Dict
+
+import numpy
+import numpy as np
+import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from typing import List, Union, Dict
 
 
 class DatasetForVQ(Dataset):
@@ -95,7 +95,8 @@ class DatasetForVQ(Dataset):
 
         pos = random.sample(self.query2pos[query], 1)[0]
         if self.per_query_neg_num > len(self.query2neg[query]):
-            negs = self.query2neg[query] + random.sample(self.docs_list, self.per_query_neg_num - len(self.query2neg[query]))
+            negs = self.query2neg[query] + random.sample(self.docs_list,
+                                                         self.per_query_neg_num - len(self.query2neg[query]))
         else:
             negs = random.sample(self.query2neg[query], self.per_query_neg_num)
 

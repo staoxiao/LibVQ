@@ -1,10 +1,12 @@
 import json
-import numpy
 from typing import Dict, List
+
+import numpy
+
 
 class IndexConfig():
     def __init__(self,
-                 index_method: str ='ivfopq',
+                 index_method: str = 'ivfopq',
                  emb_size: int = 768,
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
@@ -75,7 +77,7 @@ class BaseIndex():
         query2hardneg = {}
         for qid, neighbors in enumerate(search_results):
             neg = list(filter(lambda x: x not in ground_truths[qid], neighbors))
-            query2hardneg[qid] = [x for x in neg if x!= -1]
+            query2hardneg[qid] = [x for x in neg if x != -1]
         return query2hardneg
 
     def generate_virtual_traindata(self,
@@ -91,7 +93,7 @@ class BaseIndex():
         query2neg = {}
         for qid, neighbors in enumerate(search_results):
             query2pos[qid] = neighbors[:1]
-            query2neg[qid] = [x for x in neighbors[1:] if x!= -1]
+            query2neg[qid] = [x for x in neighbors[1:] if x != -1]
         return query2pos, query2neg
 
     def evaluate(self,
@@ -116,9 +118,9 @@ class BaseIndex():
                 for i in range(0, max(MRR_cutoffs)):
                     if candidate_pid[i] in target_pid:
                         ranking.pop()
-                        ranking.append(i+1)
+                        ranking.append(i + 1)
                         for inx, cutoff in enumerate(MRR_cutoffs):
-                            if i <= cutoff-1:
+                            if i <= cutoff - 1:
                                 MRR[inx] += 1 / (i + 1)
                         break
 

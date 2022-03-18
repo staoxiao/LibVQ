@@ -1,12 +1,11 @@
-import argparse
 import logging
 import os
+
 import numpy as np
 import torch
-from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SequentialSampler
-from typing import Type
+from tqdm import tqdm
 
 from LibVQ.dataset.dataset import DatasetForEncoding
 from LibVQ.models import Encoder
@@ -23,7 +22,6 @@ def inference_dataset(encoder: Encoder,
                       dataparallel: bool = True,
                       return_vecs: bool = False,
                       save_to_memmap: bool = True):
-
     if output_file is not None:
         if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
             print(f"{output_file}_finished.flag exists, skip inference")
@@ -59,7 +57,7 @@ def inference_dataset(encoder: Encoder,
         if output_file is not None:
             if save_to_memmap:
                 if output_memmap is None: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+",
-                                                             shape=(len(dataset), np.shape(logits)[-1]))
+                                                                    shape=(len(dataset), np.shape(logits)[-1]))
                 write_size = len(logits)
                 output_memmap[write_index:write_index + write_size] = logits
                 write_index += write_size
@@ -91,8 +89,10 @@ def inference(data_dir: str,
     dataset = DatasetForEncoding(data_dir=data_dir, prefix=prefix, max_length=max_length)
 
     if output_dir is not None:
-        if save_to_memmap: output_file = os.path.join(output_dir, f"{prefix}.memmap")
-        else: output_file = os.path.join(output_dir, f"{prefix}")
+        if save_to_memmap:
+            output_file = os.path.join(output_dir, f"{prefix}.memmap")
+        else:
+            output_file = os.path.join(output_dir, f"{prefix}")
     else:
         output_file = None
 
@@ -105,4 +105,3 @@ def inference(data_dir: str,
                              dataparallel=dataparallel,
                              return_vecs=return_vecs,
                              save_to_memmap=save_to_memmap)
-

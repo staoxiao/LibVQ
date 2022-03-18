@@ -1,11 +1,9 @@
-import os
+import math
+import time
+
 import faiss
 import numpy as np
-import math
 from tqdm import tqdm
-import json
-import time
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
 
 from LibVQ.baseindex.BaseIndex import BaseIndex
 
@@ -33,16 +31,20 @@ class FaissIndex(BaseIndex):
             quantizer = faiss.IndexFlatIP(emb_size) if dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
             self.index = faiss.IndexIVFFlat(quantizer, emb_size, ivf_centers_num, self.index_metric)
         elif index_method == 'ivf_opq':
-            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
+            self.index = faiss.index_factory(emb_size,
+                                             f"OPQ{subvector_num}, IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}",
+                                             self.index_metric)
         elif index_method == 'ivf_pq':
-            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
+            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}",
+                                             self.index_metric)
         elif index_method == 'opq':
-            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, PQ{subvector_num}x{subvector_bits}", self.index_metric)
+            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, PQ{subvector_num}x{subvector_bits}",
+                                             self.index_metric)
         elif index_method == 'pq':
             self.index = faiss.index_factory(emb_size, f"PQ{subvector_num}x{subvector_bits}", self.index_metric)
 
         self.index_method = index_method
-        self.ivf_centers_num =ivf_centers_num
+        self.ivf_centers_num = ivf_centers_num
         self.subvector_num = subvector_num
         self.is_trained = False
 
@@ -103,9 +105,9 @@ class FaissIndex(BaseIndex):
         else:
             all_scores, all_search_results = self.index.search(query_embeddings, topk)
         search_time = time.time() - start_time
-        print(f'number of query:{len(query_embeddings)},  searching time per query: {search_time / len(query_embeddings)}')
+        print(
+            f'number of query:{len(query_embeddings)},  searching time per query: {search_time / len(query_embeddings)}')
         return all_scores, all_search_results
-
 
     def test(self,
              query_embeddings,

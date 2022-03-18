@@ -4,18 +4,18 @@ We take the Passage dataset as the example.
 ## Preparing Data
 Dataload data:
 ```
-bash download_data.sh
+bash ./prepare_data/download_data.sh
 ```
 Then convert and preprocess them to the format which is need for our dataset class: 
 ```
-python convert_data_format.py
+python ./prepare_data/convert_data_format.py
 ```
 The data will be saved into `./data/passage/dataset`.
 
 ## Generate Embeddings
 We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
 ```
-python get_embeddings.py  \
+python ./prepare_data/get_embeddings.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
@@ -32,7 +32,7 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 ## IVFPQ
 + ### Faiss Index
 ```
-python faiss_index.py  \
+python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --output_dir ./data/passage/evaluate/co-condenser \
@@ -45,7 +45,7 @@ python faiss_index.py  \
 
 + ### ScaNN Index
 ```
-python scann_index.py  \
+python ./basic_index/scann_index.py  \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --output_dir ./data/passage/evaluate/co-condenser \
@@ -59,7 +59,7 @@ python scann_index.py  \
 **Finetune the index with fixed embeddings:**  
 (need the embeddings of queries and docs)
 ```
-python train_index.py  \
+python ./learnable_index/train_index.py  \
 --preprocess_dir ./data/passage/preprocess \
 --output_dir ./data/passage/evaluate/co-condenser \
 --query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
@@ -76,7 +76,7 @@ python train_index.py  \
 **Jointly train index and query encoder (always has a better performance):**  
 (need embeddings and a query encoder)
 ```
-python train_index_and_encoder.py  \
+python ./learnable_index/train_index_and_encoder.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
@@ -94,7 +94,7 @@ python train_index_and_encoder.py  \
 --per_device_train_batch_size 512
 
 
-python train_index_and_encoder.py  \
+python ./learnable_index/train_index_and_encoder.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
@@ -108,7 +108,7 @@ python train_index_and_encoder.py  \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode contrastive_jointly \
+--training_mode distill_virtual-data_jointly \
 --per_device_train_batch_size 512
 ```
 We provide several different training modes:
@@ -143,7 +143,7 @@ LearnableIndex(distill_virtual-data_jointly) | 0.3285 | 0.5875 | 0.8401 |
 For PQ, you can reuse above commands and only change the `--index_method` to `pq` or `opq`.
 For example:
 ```
-python faiss_index.py  \
+python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --output_dir ./data/passage/evaluate/co-condenser \
@@ -154,7 +154,7 @@ python faiss_index.py  \
 
 Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_jointly_v2`).
 ```
-python train_index_and_encoder.py  \
+python ./learnable_index/train_index_and_encoder.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \

@@ -1,10 +1,12 @@
-import torch.distributed as dist
-import torch
 import logging
-import sys
-import numpy as np
 import random
+import sys
+
+import numpy as np
+import torch
+import torch.distributed as dist
 from transformers import AdamW, get_linear_schedule_with_warmup
+
 
 def is_main_process(local_rank):
     return local_rank in [-1, 0]
@@ -24,6 +26,7 @@ def setuplogging(level=logging.INFO):
         root.handlers.clear()  # otherwise logging have multi output
     root.addHandler(handler)
 
+
 def setup_worker(rank, world_size):
     # initialize the process group
     dist.init_process_group(
@@ -36,6 +39,7 @@ def setup_worker(rank, world_size):
     np.random.seed(42)
     random.seed(42)
 
+
 def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
     all_tensors = [torch.empty_like(vecs) for _ in range(world_size)]
     dist.all_gather(all_tensors, vecs)
@@ -43,6 +47,7 @@ def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
         all_tensors[local_rank] = vecs
     all_tensors = torch.cat(all_tensors, dim=0)
     return all_tensors
+
 
 def create_optimizer_and_scheduler(args, model, num_training_steps: int):
     no_decay = ["bias", "LayerNorm.weight"]
@@ -77,4 +82,3 @@ def create_optimizer_and_scheduler(args, model, num_training_steps: int):
     )
 
     return optimizer, scheduler
-

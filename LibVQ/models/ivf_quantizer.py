@@ -1,10 +1,10 @@
-import torch
-from torch import nn
 import faiss
 import numpy as np
-import torch.distributed as dist
+import torch
+from torch import nn
 
 from LibVQ.utils import dist_gather_tensor
+
 
 class IVF_CPU(nn.Module):
     def __init__(self, center_vecs, id2center):
@@ -58,7 +58,7 @@ class IVF_CPU(nn.Module):
         else:
             all_dc_ids, all_nc_ids = dc_ids, nc_ids
 
-        batch_cids = sorted(list(set(all_dc_ids+all_nc_ids)))
+        batch_cids = sorted(list(set(all_dc_ids + all_nc_ids)))
         cid2bid = {}
         for i, c in enumerate(batch_cids):
             cid2bid[c] = i
@@ -79,7 +79,7 @@ class IVF_CPU(nn.Module):
     def grad_accumulate(self, world_size):
         if world_size > 1:
             grad = dist_gather_tensor(self.batch_center_vecs.grad.unsqueeze(0), world_size=world_size, detach=True)
-            grad = torch.mean(grad, dim = 0).detach().cpu().numpy()
+            grad = torch.mean(grad, dim=0).detach().cpu().numpy()
         else:
             grad = self.batch_center_vecs.grad.detach().cpu().numpy()
 

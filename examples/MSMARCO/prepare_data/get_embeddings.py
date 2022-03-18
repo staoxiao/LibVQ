@@ -1,12 +1,12 @@
 import os
+
 import numpy as np
-import faiss
 import torch
 from transformers import HfArgumentParser, AutoModel, AutoConfig
 
-from LibVQ.inference import inference
-from LibVQ.models import Encoder, EncoderConfig
 from LibVQ.dataset.preprocess import preprocess_data
+from LibVQ.inference import inference
+from LibVQ.models import Encoder
 
 from arguments import DataArguments, ModelArguments
 
@@ -25,6 +25,7 @@ class MS_Encoder(torch.nn.Module):
     def forward(self, input_ids, attention_mask):
         outputs = self.ms_encoder(input_ids, attention_mask)
         return self.pooling(outputs)
+
 
 if __name__ == '__main__':
     parser = HfArgumentParser((DataArguments, ModelArguments))
@@ -49,13 +50,12 @@ if __name__ == '__main__':
     # text_encoder = Encoder(config)
     # emb_size = text_encoder.output_embedding_size
 
-
     query_encoder = MS_Encoder(model_args.pretrained_model_name)
     doc_encoder = MS_Encoder(model_args.pretrained_model_name)
     emb_size = doc_encoder.output_embedding_size
 
-    text_encoder = Encoder(query_encoder = query_encoder,
-                           doc_encoder = doc_encoder)
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
 
     # Generate embeddings of queries and docs
     # inference(data_dir=data_args.preprocess_dir,
@@ -86,7 +86,6 @@ if __name__ == '__main__':
     #           enable_rewrite=False,
     #           return_vecs=False)
 
-
     # you can load the generated embeddings as following:
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
                                dtype=np.float32, mode="r")
@@ -94,6 +93,3 @@ if __name__ == '__main__':
     query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)
-
-
-
