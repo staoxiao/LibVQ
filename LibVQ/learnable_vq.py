@@ -18,6 +18,7 @@ class LearnableVQ(nn.Module):
                  index_method: str = 'ivf_opq',
                  encoder=None):
         nn.Module.__init__(self)
+
         self.config = config
         self.encoder = encoder
         if index_file is not None:

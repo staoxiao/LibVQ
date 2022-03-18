@@ -3,12 +3,22 @@ import numpy as np
 import faiss
 import torch
 from transformers import HfArgumentParser
+from transformers import DPRContextEncoder, DPRQuestionEncoder, AutoConfig, DPRContextEncoderTokenizer
 
 from LibVQ.inference import inference
 from LibVQ.models import Encoder, EncoderConfig
 from LibVQ.dataset.preprocess import preprocess_data
 
 from arguments import DataArguments, ModelArguments
+
+class DPR_Encoder(torch.nn.Module):
+    def __init__(self, encoder):
+        torch.nn.Module.__init__(self, )
+        self.nq_encoder = encoder
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.nq_encoder(input_ids, attention_mask)
+        return outputs.pooler_output
 
 
 if __name__ == '__main__':
@@ -27,12 +37,21 @@ if __name__ == '__main__':
                         workers_num=64)
 
     # Load encoder
-    config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
-    config.pretrained_model_name = model_args.pretrained_model_name
-    config.use_two_encoder = model_args.use_two_encoder
-    config.sentence_pooling_method = model_args.sentence_pooling_method
-    text_encoder = Encoder(config)
-    emb_size = text_encoder.output_embedding_size
+    # config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
+    # config.pretrained_model_name = model_args.pretrained_model_name
+    # config.use_two_encoder = model_args.use_two_encoder
+    # config.sentence_pooling_method = model_args.sentence_pooling_method
+    # text_encoder = Encoder(config)
+    # emb_size = text_encoder.output_embedding_size
+
+
+    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    emb_size = config.hidden_size
+
+    text_encoder = Encoder(query_encoder = query_encoder,
+                           doc_encoder = doc_encoder)
 
     # Generate embeddings of queries and docs
     inference(data_dir=data_args.preprocess_dir,

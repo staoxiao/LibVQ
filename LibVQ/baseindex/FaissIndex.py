@@ -19,6 +19,7 @@ class FaissIndex(BaseIndex):
                  subvector_bits: int = 8,
                  dist_mode: str = 'ip',
                  doc_embeddings: np.ndarray = None):
+        BaseIndex.__init__(self, )
 
         assert dist_mode in ('ip', 'l2')
         self.index_metric = faiss.METRIC_INNER_PRODUCT if dist_mode == 'ip' else faiss.METRIC_L2

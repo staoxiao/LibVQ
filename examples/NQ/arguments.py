@@ -26,10 +26,7 @@ class DataArguments:
 
 @dataclass
 class ModelArguments:
-    pretrained_model_name: str = field(default='Luyu/co-condenser-marco-retriever')
-    use_two_encoder: bool = field(default=True)
-    sentence_pooling_method: str = field(default='first')
-
+    pass
 
 @dataclass
 class TrainingArguments:

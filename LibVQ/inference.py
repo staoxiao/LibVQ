@@ -29,7 +29,8 @@ def inference_dataset(encoder: Encoder,
             print(f"{output_file}_finished.flag exists, skip inference")
             return
         if os.path.exists(output_file): os.remove(output_file)
-        if save_to_memmap: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
+
+        output_memmap = None
 
     if return_vecs or not save_to_memmap: vecs = []
 
@@ -57,6 +58,8 @@ def inference_dataset(encoder: Encoder,
 
         if output_file is not None:
             if save_to_memmap:
+                if output_memmap is None: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+",
+                                                             shape=(len(dataset), np.shape(logits)[-1]))
                 write_size = len(logits)
                 output_memmap[write_index:write_index + write_size] = logits
                 write_index += write_size

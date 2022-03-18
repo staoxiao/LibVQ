@@ -18,7 +18,6 @@ We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder
 python get_embeddings.py  \
 --data_dir ./data/NQ/dataset \
 --preprocess_dir ./data/NQ/preprocess \
---pretrained_model_name Luyu/co-condenser-wiki \
 --max_doc_length 256 \
 --max_query_length  32 \
 --output_dir ./data/NQ/evaluate/ 

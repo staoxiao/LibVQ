@@ -151,3 +151,5 @@ if __name__ == '__main__':
                          batch_size=64,
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
+
+    learnable_index.save_index(f'{data_args.output_dir}/learnable_index.index')

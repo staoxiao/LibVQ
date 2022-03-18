@@ -12,6 +12,7 @@ from LibVQ.baseindex import FaissIndex
 from LibVQ.utils import setuplogging
 
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
+from get_embeddings import MS_Encoder
 
 faiss.omp_set_num_threads(32)
 
@@ -22,12 +23,19 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
-    config.pretrained_model_name = model_args.pretrained_model_name
-    config.use_two_encoder = model_args.use_two_encoder
-    config.sentence_pooling_method = model_args.sentence_pooling_method
-    text_encoder = Encoder(config)
-    emb_size = text_encoder.output_embedding_size
+    # config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
+    # config.pretrained_model_name = model_args.pretrained_model_name
+    # config.use_two_encoder = model_args.use_two_encoder
+    # config.sentence_pooling_method = model_args.sentence_pooling_method
+    # text_encoder = Encoder(config)
+    # emb_size = text_encoder.output_embedding_size
+
+    query_encoder = MS_Encoder(model_args.pretrained_model_name)
+    doc_encoder = MS_Encoder(model_args.pretrained_model_name)
+    emb_size = doc_encoder.output_embedding_size
+
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
 
     # Load embeddings of queries and docs
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
@@ -178,7 +186,7 @@ if __name__ == '__main__':
     # ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
 
     # update query embeddings when re-training the query encoder
-    # data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
     # learnable_index.update_encoder(encoder_file=f'{ckpt_path}/encoder.bin')
     new_query_embeddings = learnable_index.encode(data_dir=data_args.preprocess_dir,
                            prefix='dev-queries',
@@ -216,3 +224,4 @@ if __name__ == '__main__':
     learnable_index.test(new_query_embeddings, ground_truths, topk=1000, batch_size=64,
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
+    learnable_index.save_index(f'{data_args.output_dir}/learnable_index.index')

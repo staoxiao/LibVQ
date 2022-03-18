@@ -12,6 +12,8 @@ class ScaNNIndex(BaseIndex):
                  subvector_num=32,
                  hash_type='lut256',
                  anisotropic_quantization_threshold=0.2):
+        BaseIndex.__init__(self, )
+
         self.index = scann.scann_ops_pybind.builder(doc_embeddings, 100, "dot_product").tree(
              num_leaves=ivf_centers_num, num_leaves_to_search=1,
              training_sample_size=min(len(doc_embeddings), ivf_centers_num * 256)).score_ah(

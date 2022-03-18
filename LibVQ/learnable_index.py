@@ -248,7 +248,7 @@ class LearnableIndex(FaissIndex):
         if 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
-            self.update_encoder(checkpoint_path)
+            self.update_encoder(saved_ckpts_path = checkpoint_path)
 
         if 'doc' not in fix_emb:
             # update doc_embeddings
@@ -263,7 +263,8 @@ class LearnableIndex(FaissIndex):
                        )
 
         # update index
-        self.update_index_with_ckpt(checkpoint_path, doc_embeddings)
+        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                    doc_embeddings=doc_embeddings)
 
 
     def fit_with_multi_gpus(
@@ -356,7 +357,7 @@ class LearnableIndex(FaissIndex):
         if 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
-            self.update_encoder(checkpoint_path)
+            self.update_encoder(saved_ckpts_path = checkpoint_path)
 
         if 'doc' not in fix_emb:
             # update doc_embeddings
@@ -378,4 +379,5 @@ class LearnableIndex(FaissIndex):
                 doc_embeddings = np.load(doc_embeddings_file)
 
         # update index
-        self.update_index_with_ckpt(checkpoint_path, doc_embeddings)
+        self.update_index_with_ckpt(saved_ckpts_path = checkpoint_path,
+                                    doc_embeddings = doc_embeddings)

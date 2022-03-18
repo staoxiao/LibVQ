@@ -36,12 +36,8 @@ if __name__ == '__main__':
                        dist_mode=index_args.dist_mode)
 
     print('Training the index with doc embeddings')
-    # if faiss.get_num_gpus() > 0:
-    #     index.CPU_to_GPU(0)
     index.fit(doc_embeddings)
     index.add(doc_embeddings)
-    # if faiss.get_num_gpus() > 0:
-    #     index.GPU_to_CPU()
     index.save_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
     # index.load_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
 

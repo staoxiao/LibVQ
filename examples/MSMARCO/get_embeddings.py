@@ -2,7 +2,7 @@ import os
 import numpy as np
 import faiss
 import torch
-from transformers import HfArgumentParser
+from transformers import HfArgumentParser, AutoModel, AutoConfig
 
 from LibVQ.inference import inference
 from LibVQ.models import Encoder, EncoderConfig
@@ -10,6 +10,21 @@ from LibVQ.dataset.preprocess import preprocess_data
 
 from arguments import DataArguments, ModelArguments
 
+
+class MS_Encoder(torch.nn.Module):
+    def __init__(self, pretrained_model_name):
+        torch.nn.Module.__init__(self, )
+
+        self.ms_encoder = AutoModel.from_pretrained(pretrained_model_name)
+        config = AutoConfig.from_pretrained(pretrained_model_name)
+        self.output_embedding_size = config.hidden_size
+
+    def pooling(self, emb_all):
+        return emb_all[0][:, 0]
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.ms_encoder(input_ids, attention_mask)
+        return self.pooling(outputs)
 
 if __name__ == '__main__':
     parser = HfArgumentParser((DataArguments, ModelArguments))
@@ -27,23 +42,31 @@ if __name__ == '__main__':
                         workers_num=64)
 
     # Load encoder
-    config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
-    config.pretrained_model_name = model_args.pretrained_model_name
-    config.use_two_encoder = model_args.use_two_encoder
-    config.sentence_pooling_method = model_args.sentence_pooling_method
-    text_encoder = Encoder(config)
-    emb_size = text_encoder.output_embedding_size
+    # config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
+    # config.pretrained_model_name = model_args.pretrained_model_name
+    # config.use_two_encoder = model_args.use_two_encoder
+    # config.sentence_pooling_method = model_args.sentence_pooling_method
+    # text_encoder = Encoder(config)
+    # emb_size = text_encoder.output_embedding_size
+
+
+    query_encoder = MS_Encoder(model_args.pretrained_model_name)
+    doc_encoder = MS_Encoder(model_args.pretrained_model_name)
+    emb_size = doc_encoder.output_embedding_size
+
+    text_encoder = Encoder(query_encoder = query_encoder,
+                           doc_encoder = doc_encoder)
 
     # Generate embeddings of queries and docs
-    inference(data_dir=data_args.preprocess_dir,
-              is_query=False,
-              encoder=text_encoder,
-              prefix=f'docs',
-              max_length=data_args.max_doc_length,
-              output_dir=data_args.output_dir,
-              batch_size=10240,
-              enable_rewrite=False,
-              return_vecs=False)
+    # inference(data_dir=data_args.preprocess_dir,
+    #           is_query=False,
+    #           encoder=text_encoder,
+    #           prefix=f'docs',
+    #           max_length=data_args.max_doc_length,
+    #           output_dir=data_args.output_dir,
+    #           batch_size=10240,
+    #           enable_rewrite=False,
+    #           return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
               is_query=True,
               encoder=text_encoder,
@@ -53,15 +76,15 @@ if __name__ == '__main__':
               batch_size=10240,
               enable_rewrite=False,
               return_vecs=False)
-    inference(data_dir=data_args.preprocess_dir,
-              is_query=True,
-              encoder=text_encoder,
-              prefix=f'train-queries',
-              max_length=data_args.max_query_length,
-              output_dir=data_args.output_dir,
-              batch_size=10240,
-              enable_rewrite=False,
-              return_vecs=False)
+    # inference(data_dir=data_args.preprocess_dir,
+    #           is_query=True,
+    #           encoder=text_encoder,
+    #           prefix=f'train-queries',
+    #           max_length=data_args.max_query_length,
+    #           output_dir=data_args.output_dir,
+    #           batch_size=10240,
+    #           enable_rewrite=False,
+    #           return_vecs=False)
 
 
     # you can load the generated embeddings as following:
