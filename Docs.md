@@ -41,9 +41,6 @@ from LibVQ.learnable_index import LearnableIndex
 ```
 We provide two modes to train the index: only training index and jointly training index and encoder. 
 You can use them to update the index and get better performance than transitional index (e.g., scann, faiss).  
-**Noted that The LearnableIndex is implemented base on [faiss](https://github.com/facebookresearch/faiss), so it supports all operations in faiss (e.g., GPU acceleration). Specifically,
-you can get a origin faiss index by `index = LearnableIndex.index`, and apply faiss operations to it.**
-
 
 ## A. Training
 ### - Only train index
@@ -66,10 +63,8 @@ learnable_index = LearnableIndex(doc_embeddings = doc_embeddings,
 **3.  Train index**  
 `fit` function will train the parameters of pq and ivf (if has) based on the relevance relationship between query and doc.
 ```python
-# if there is no relevance label, you can generate by "generate_virtual_traindata" function
-# query2pos, query2neg = learnable_index.generate_virtual_traindata(query_embeddings, nprobe = 10000)
 learnable_index.fit(model = learnable_index.learnable_vq,
-                    rel_data = query2pos,
+                    rel_data = query2pos,          # relevance relationship; if set it None, we will generate the data based no init index
                     query_embeddings = query_embeddings,
                     doc_embeddings = doc_embeddings,
                     checkpoint_path = './temp/',   # the parameters of index will saved to this path
@@ -129,8 +124,6 @@ learnable_index = LearnableIndex(encoder=encoder,
 ```
 **3.  Train index and encoder**  
 ```python
-# if there is no relevance label, you can generate by "generate_virtual_traindata" function
-# query2pos, query2neg = learnable_index.generate_virtual_traindata(query_embeddings, nprobe = 10000)
 learnable_index.fit(model = learnable_index.learnable_vq,
                     rel_data = query2pos,
                     query_embeddings = query_embeddings,
@@ -146,38 +139,27 @@ learnable_index.fit(model = learnable_index.learnable_vq,
 
 
 
-## B. Update Index and Test
+## B. Update Embeddings and Test
 **1. Update embeddings**  
 This step is needed only when you jointly the index and encoder.
 ```python
-learnable_index.update_encoder(saved_ckpts_path = './temp/') # update encoder
-learnable_index.encode(data_dir = preprocess_dir,            # update query embeddings
+query_embeddings = learnable_index.encode(data_dir = preprocess_dir,            # update query embeddings
                        prefix = 'dev-queries',
                        max_length = max_query_length,
-                       output_dir = output_dir,
                        batch_size = 8196,
                        is_query = True,
+                       return_vecs = True
                        )
-query_embeddings = np.memmap(f'{output_dir}/dev-queries.memmap', dtype=np.float32, mode="r")
-query_embeddings = new_query_embeddings.reshape(-1, emb_size)
-
-# if you re-train the doc encoder, generate the new doc embeddings 
-# doc_embeddings = ... 
 ```
 
-**2. Update index**  
-After training, you can select a set of trained parameters to update the index:
+**2. Search**  
 ```python
-learnable_index.update_index_with_ckpt(saved_ckpts_path = './temp/', doc_embeddings = doc_embeddings)
-```
-
-**3. Search**  
-```python
-scores, ann_items = faiss_index.search(query_embeddings = query_embeddings,
+scores, ann_items = learnable_index.search(query_embeddings = query_embeddings,
                                        topk = 100,
                                        nprobe = 10)
 ```
-
+**Noted that The LearnableIndex is implemented base on [faiss](https://github.com/facebookresearch/faiss), so it supports all operations in faiss (e.g., GPU acceleration). Specifically,
+you can get a origin faiss index by `index = LearnableIndex.index`, and apply faiss operations to it.**
 
 
 

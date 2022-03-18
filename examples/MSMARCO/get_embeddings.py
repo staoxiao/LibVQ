@@ -42,7 +42,8 @@ if __name__ == '__main__':
               max_length=data_args.max_doc_length,
               output_dir=data_args.output_dir,
               batch_size=10240,
-              enable_rewrite=False)
+              enable_rewrite=False,
+              return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
               is_query=True,
               encoder=text_encoder,
@@ -50,7 +51,8 @@ if __name__ == '__main__':
               max_length=data_args.max_query_length,
               output_dir=data_args.output_dir,
               batch_size=10240,
-              enable_rewrite=False)
+              enable_rewrite=False,
+              return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
               is_query=True,
               encoder=text_encoder,
@@ -58,7 +60,8 @@ if __name__ == '__main__':
               max_length=data_args.max_query_length,
               output_dir=data_args.output_dir,
               batch_size=10240,
-              enable_rewrite=False)
+              enable_rewrite=False,
+              return_vecs=False)
 
 
     # you can load the generated embeddings as following:

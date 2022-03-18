@@ -4,6 +4,7 @@ import numpy
 import numpy as np
 import os
 import sys
+import pickle
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -16,10 +17,10 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm.autonotebook import trange
 from transformers import AdamW, get_linear_schedule_with_warmup, AutoConfig
 from typing import List, Dict, Tuple, Iterable, Type, Union, Callable, Optional
+import time
 
-from LibVQ.baseindex import FaissIndex
-from LibVQ.baseindex import IndexConfig
-from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ
+from LibVQ.baseindex import FaissIndex, IndexConfig
+from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ, preprocess_data, write_rel, load_rel
 from LibVQ.inference import inference
 from LibVQ.learnable_vq import LearnableVQ
 from LibVQ.models import Encoder
@@ -113,6 +114,8 @@ class LearnableIndex(FaissIndex):
             assert saved_ckpts_path is not None
             ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
 
+        logging.info(f"updating index based on {ckpt_path}")
+
         ivf_file = os.path.join(ckpt_path, 'ivf_centers.npy')
         if os.path.exists(ivf_file):
             logging.info(f"loading ivf centers from {ivf_file}")
@@ -158,6 +161,111 @@ class LearnableIndex(FaissIndex):
         return vecs
 
 
+    def get_temp_checkpoint_save_path(self):
+        time_str = time.strftime('%m_%d-%H-%M-%S', time.localtime(time.time()))
+        return f'./temp/{time_str}'
+
+    def load_embedding(self, emb, emb_size):
+        if isinstance(emb, str):
+            assert 'npy' in emb or 'memmap' in emb
+            if 'memmap' in emb:
+                embeddings = np.memmap(emb, dtype=np.float32, mode="r")
+                return embeddings.reshape(-1, emb_size)
+            elif 'npy' in emb:
+                return np.load(emb)
+        else:
+            return emb
+
+    def fit(self,
+            dataset: DatasetForVQ = None,
+            rel_data: Union[str, Dict[int, List[int]]] = None,
+            query_data_dir: str = None,
+            max_query_length: int = 32,
+            doc_data_dir: str = None,
+            max_doc_length: int = None,
+            epochs: int = 5,
+            per_device_train_batch_size: int = 128,
+            per_query_neg_num: int = 1,
+            neg_data: Union[str, Dict[int, List[int]]] = None,
+            query_embeddings: Union[str, numpy.ndarray] = None,
+            doc_embeddings: Union[str, numpy.ndarray] = None,
+            emb_size: int = None,
+            warmup_steps_ratio: float = 0.1,
+            optimizer_class: Type[Optimizer] = AdamW,
+            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
+                                              'ivf_weight': 'scaled_to_pqloss'},
+            temperature: float = 1.0,
+            loss_method: str = 'distill',
+            fix_emb: str = 'doc',
+            weight_decay: float = 0.01,
+            max_grad_norm: float = -1,
+            show_progress_bar: bool = True,
+            checkpoint_path: str = None,
+            checkpoint_save_steps: int = None,
+            logging_steps: int = 100,
+    ):
+        if checkpoint_save_steps is None:
+            checkpoint_path = self.get_temp_checkpoint_save_path()
+            logging.info(f"The model will be saved into {checkpoint_path}")
+
+        query_embeddings = self.load_embedding(query_embeddings, emb_size=emb_size)
+        doc_embeddings = self.load_embedding(doc_embeddings, emb_size=emb_size)
+
+        if rel_data is None:
+            # generate train data
+            logging.info("generating relevance data...")
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.learnable_vq.ivf.ivf_centers_num)
+
+        train_model(model=self.learnable_vq,
+                    dataset=dataset,
+                    rel_data=rel_data,
+                    query_data_dir=query_data_dir,
+                    max_query_length=max_query_length,
+                    doc_data_dir=doc_data_dir,
+                    max_doc_length=max_doc_length,
+                    epochs=epochs,
+                    per_device_train_batch_size=per_device_train_batch_size,
+                    per_query_neg_num=per_query_neg_num,
+                    neg_data=neg_data,
+                    query_embeddings=query_embeddings,
+                    doc_embeddings=doc_embeddings,
+                    emb_size=emb_size,
+                    warmup_steps_ratio=warmup_steps_ratio,
+                    optimizer_class=optimizer_class,
+                    lr_params=lr_params,
+                    loss_weight=loss_weight,
+                    temperature=temperature,
+                    loss_method=loss_method,
+                    fix_emb=fix_emb,
+                    weight_decay=weight_decay,
+                    max_grad_norm=max_grad_norm,
+                    show_progress_bar=show_progress_bar,
+                    checkpoint_path=checkpoint_path,
+                    checkpoint_save_steps=checkpoint_save_steps,
+                    logging_steps=logging_steps
+                    )
+        if 'query' not in fix_emb or 'doc' not in fix_emb:
+            # update encoder
+            assert self.learnable_vq.encoder is not None
+            self.update_encoder(checkpoint_path)
+
+        if 'doc' not in fix_emb:
+            # update doc_embeddings
+            logging.info(f"updating doc embeddings and saving it to {checkpoint_path}")
+            doc_embeddings = self.encode(data_dir=doc_data_dir,
+                       prefix='docs',
+                       max_length=max_doc_length,
+                       output_dir=checkpoint_path,
+                       batch_size=8196,
+                       is_query=False,
+                       return_vecs=True
+                       )
+
+        # update index
+        self.update_index_with_ckpt(checkpoint_path, doc_embeddings)
+
+
     def fit_with_multi_gpus(
             self,
             rel_file: str = None,
@@ -193,6 +301,24 @@ class LearnableIndex(FaissIndex):
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = master_port
         world_size = torch.cuda.device_count()
+
+        if checkpoint_save_steps is None:
+            checkpoint_path = self.get_temp_checkpoint_save_path()
+            logging.info(f"The model will be saved into {checkpoint_path}")
+
+        if rel_file is None:
+            # generate train data
+            logging.info("generating relevance data...")
+            query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
+            doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.learnable_vq.ivf.ivf_centers_num)
+
+            logging.info(f"saving relevance data to {checkpoint_path}...")
+            rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')
+            neg_file = os.path.join(checkpoint_path, f"train-queries-virtual_hardneg.pickle")
+            write_rel(rel_file, rel_data)
+            pickle.dump(neg_data, open(neg_file, 'wb'))
+
         mp.spawn(train_model,
                  args=(self.learnable_vq,
                        None,
@@ -227,85 +353,29 @@ class LearnableIndex(FaissIndex):
                  nprocs=world_size,
                  join=True)
 
+        if 'query' not in fix_emb or 'doc' not in fix_emb:
+            # update encoder
+            assert self.learnable_vq.encoder is not None
+            self.update_encoder(checkpoint_path)
+
+        if 'doc' not in fix_emb:
+            # update doc_embeddings
+            logging.info(f"updating doc embeddings and saving it to {checkpoint_path}")
+            doc_embeddings = self.encode(data_dir=doc_data_dir,
+                                         prefix='docs',
+                                         max_length=max_doc_length,
+                                         output_dir=checkpoint_path,
+                                         batch_size=8196,
+                                         is_query=False,
+                                         return_vecs=True
+                                         )
+        else:
+            assert 'npy' in doc_embeddings_file or 'memmap' in doc_embeddings_file
+            if 'memmap' in doc_embeddings_file:
+                embeddings = np.memmap(doc_embeddings_file, dtype=np.float32, mode="r")
+                doc_embeddings = embeddings.reshape(-1, emb_size)
+            elif 'npy' in doc_embeddings_file:
+                doc_embeddings = np.load(doc_embeddings_file)
+
+        # update index
         self.update_index_with_ckpt(checkpoint_path, doc_embeddings)
-
-    def fit(self,
-            local_rank: int = -1,
-            model: LearnableVQ = None,
-            dataset: DatasetForVQ = None,
-            rel_data: Union[str, Dict[int, List[int]]] = None,
-            query_data_dir: str = None,
-            max_query_length: int = 32,
-            doc_data_dir: str = None,
-            max_doc_length: int = None,
-            world_size: int = 1,
-            epochs: int = 5,
-            per_device_train_batch_size: int = 128,
-            per_query_neg_num: int = 1,
-            cross_device_sample: bool = True,
-            neg_data: Union[str, Dict[int, List[int]]] = None,
-            query_embeddings: Union[str, numpy.ndarray] = None,
-            doc_embeddings: Union[str, numpy.ndarray] = None,
-            emb_size: int = None,
-            warmup_steps_ratio: float = 0.1,
-            optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                              'ivf_weight': 'scaled_to_pqloss'},
-            temperature: float = 1.0,
-            loss_method: str = 'distill',
-            fix_emb: str = 'doc',
-            weight_decay: float = 0.01,
-            max_grad_norm: float = -1,
-            show_progress_bar: bool = True,
-            checkpoint_path: str = './temp/',
-            checkpoint_save_steps: int = None,
-            logging_steps: int = 100,
-            **kwargs
-    ):
-
-
-        train_model(kwargs)
-        self.update_index_with_ckpt(checkpoint_path, doc_embeddings)
-
-
-
-
-    def prepare_data(self,
-                     dataset_dir,
-                     preprocess_dir,
-                     max_query_length,
-                     max_doc_length,
-                     rel_data,
-                     query_embeddings,
-                     doc_embeddings,
-                     output_dir,
-                     ):
-
-        if dataset_dir:
-
-
-        if emb:
-            inference()
-
-        if rel_data is None:
-            self.generate_virtual_traindata(query_embeddings=query_embeddings,
-                                            topk = 400,
-                                            batch_size = None,
-                                            nprobe = None)
-
-        preprocess_data(data_dir=dataset_dir,
-                        output_dir=preprocess_dir,
-                        tokenizer_name=pretrained_model_name,
-                        max_doc_length=max_doc_length,
-                        max_query_length=max_query_length,
-                        workers_num=64)
-
-        inference(data_dir=preprocess_dir,
-                  is_query=is_query,
-                  encoder=encoder,
-                  prefix=f'docs',
-                  max_length=max_length,
-                  output_dir=output_dir,
-                  batch_size=10240)
-

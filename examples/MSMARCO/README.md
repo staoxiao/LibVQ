@@ -92,6 +92,24 @@ python train_index_and_encoder.py  \
 --nprobe 100 \
 --training_mode {distill_jointly, distill_virtual-data_jointly, contrastive_jointly} \
 --per_device_train_batch_size 512
+
+
+python train_index_and_encoder.py  \
+--data_dir ./data/passage/dataset \
+--preprocess_dir ./data/passage/preprocess \
+--pretrained_model_name Luyu/co-condenser-marco-retriever \
+--max_doc_length 256 \
+--max_query_length 32 \
+--output_dir ./data/passage/evaluate/co-condenser \
+--query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
+--doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--index_method ivf_opq \
+--ivf_centers_num 10000 \
+--subvector_num 32 \
+--subvector_bits 8 \
+--nprobe 100 \
+--training_mode contrastive_jointly \
+--per_device_train_batch_size 512
 ```
 We provide several different training modes:
 1. **contrastive**: contrastive learning;

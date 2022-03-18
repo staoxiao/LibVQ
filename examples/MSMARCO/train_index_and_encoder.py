@@ -175,40 +175,41 @@ if __name__ == '__main__':
                                             epochs=30)
 
     # select a latest ckpt
-    ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
+    # ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
 
     # update query embeddings when re-training the query encoder
-    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
-    learnable_index.update_encoder(encoder_file=f'{ckpt_path}/encoder.bin')
-    learnable_index.encode(data_dir=data_args.preprocess_dir,
+    # data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    # learnable_index.update_encoder(encoder_file=f'{ckpt_path}/encoder.bin')
+    new_query_embeddings = learnable_index.encode(data_dir=data_args.preprocess_dir,
                            prefix='dev-queries',
                            max_length=data_args.max_query_length,
                            output_dir=data_args.output_dir,
                            batch_size=8196,
                            is_query=True,
+                           return_vecs=True
                            )
-    print(f'{data_args.output_dir}/dev-queries.memmap')
-    new_query_embeddings = np.memmap(f'{data_args.output_dir}/dev-queries.memmap', dtype=np.float32,
-                                 mode="r")
-    new_query_embeddings = new_query_embeddings.reshape(-1, emb_size)
+    # print(f'{data_args.output_dir}/dev-queries.memmap')
+    # new_query_embeddings = np.memmap(f'{data_args.output_dir}/dev-queries.memmap', dtype=np.float32,
+    #                              mode="r")
+    # new_query_embeddings = new_query_embeddings.reshape(-1, emb_size)
 
     # update doc embeddings when re-training the doc encoder
-    if training_args.training_mode == 'distill_jointly_v2':
-        learnable_index.encode(data_dir=data_args.preprocess_dir,
-                               prefix='docs',
-                               max_length=data_args.max_doc_length,
-                               output_dir=data_args.output_dir,
-                               batch_size=8196,
-                               is_query=False,
-                               )
-        print(f'{data_args.output_dir}/docs.memmap')
-        doc_embeddings = np.memmap(f'{data_args.output_dir}/docs.memmap', dtype=np.float32,
-                                         mode="r")
-        doc_embeddings = doc_embeddings.reshape(-1, emb_size)
+    # if training_args.training_mode == 'distill_jointly_v2':
+    #     learnable_index.encode(data_dir=data_args.preprocess_dir,
+    #                            prefix='docs',
+    #                            max_length=data_args.max_doc_length,
+    #                            output_dir=data_args.output_dir,
+    #                            batch_size=8196,
+    #                            is_query=False,
+    #                            )
+    #     print(f'{data_args.output_dir}/docs.memmap')
+    #     doc_embeddings = np.memmap(f'{data_args.output_dir}/docs.memmap', dtype=np.float32,
+    #                                      mode="r")
+    #     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
 
     # update index
-    print('Updating the index with new ivf and pq')
-    learnable_index.update_index_with_ckpt(ckpt_path=ckpt_path, doc_embeddings=doc_embeddings)
+    # print('Updating the index with new ivf and pq')
+    # learnable_index.update_index_with_ckpt(ckpt_path=ckpt_path, doc_embeddings=doc_embeddings)
 
     # Test
     ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))

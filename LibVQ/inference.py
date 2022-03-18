@@ -24,13 +24,14 @@ def inference_dataset(encoder: Encoder,
                       return_vecs: bool = False,
                       save_to_memmap: bool = True):
 
-    if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
-        print(f"{output_file}_finished.flag exists, skip inference")
-        return
-    if os.path.exists(output_file): os.remove(output_file)
+    if output_file is not None:
+        if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
+            print(f"{output_file}_finished.flag exists, skip inference")
+            return
+        if os.path.exists(output_file): os.remove(output_file)
+        if save_to_memmap: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
 
     if return_vecs or not save_to_memmap: vecs = []
-    if save_to_memmap: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+", shape=(len(dataset), encoder.output_embedding_size))
 
     dataloader = DataLoader(
         dataset,
@@ -54,28 +55,31 @@ def inference_dataset(encoder: Encoder,
             logits = encoder(input_ids=input_ids, attention_mask=attention_mask,
                              is_query=is_query).detach().cpu().numpy()
 
-        if save_to_memmap:
-            write_size = len(logits)
-            output_memmap[write_index:write_index + write_size] = logits
-            write_index += write_size
+        if output_file is not None:
+            if save_to_memmap:
+                write_size = len(logits)
+                output_memmap[write_index:write_index + write_size] = logits
+                write_index += write_size
 
         if return_vecs or not save_to_memmap: vecs.extend(logits)
 
-    if save_to_memmap:
-        assert write_index == len(output_memmap)
-    else:
-        np.save(output_file, np.array(vecs))
-    open(output_file + '_finished.flag', 'w')
+    if output_file is not None:
+        if save_to_memmap:
+            assert write_index == len(output_memmap)
+        else:
+            np.save(output_file, np.array(vecs))
+        open(output_file + '_finished.flag', 'w')
 
     if return_vecs: return vecs
+
 
 def inference(data_dir: str,
               is_query: bool,
               encoder: Encoder,
               prefix: str,
               max_length: int,
-              output_dir: str,
-              batch_size: int,
+              output_dir: str = None,
+              batch_size: int = 1024,
               enable_rewrite: bool = True,
               dataparallel: bool = True,
               return_vecs: bool = False,
@@ -83,8 +87,11 @@ def inference(data_dir: str,
               ):
     dataset = DatasetForEncoding(data_dir=data_dir, prefix=prefix, max_length=max_length)
 
-    if save_to_memmap: output_file = os.path.join(output_dir, f"{prefix}.memmap")
-    else: output_file = os.path.join(output_dir, f"{prefix}")
+    if output_dir is not None:
+        if save_to_memmap: output_file = os.path.join(output_dir, f"{prefix}.memmap")
+        else: output_file = os.path.join(output_dir, f"{prefix}")
+    else:
+        output_file = None
 
     return inference_dataset(encoder=encoder,
                              dataset=dataset,

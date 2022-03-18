@@ -25,7 +25,7 @@ class BaseEncoder(nn.Module):
         torch.save(self.state_dict(), save_file)
 
 
-class Encoder(nn.Module):
+class Encoder(BaseEncoder):
     def __init__(self, config):
         nn.Module.__init__(self)
         self.query_encoder = AutoModel.from_pretrained(config.pretrained_model_name)

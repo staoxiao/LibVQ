@@ -106,7 +106,7 @@ if __name__ == '__main__':
             # query2pos, query2neg = trainquery2hardneg = flat_index.generate_virtual_traindata(train_query_embeddings,
             #                                                                                        topk=400, batch_size=64)
             # or
-            query2pos, query2neg = trainquery2hardneg = learnable_index.generate_virtual_traindata(train_query_embeddings,
+            query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
                                                                                                    topk=400, batch_size=64)
 
             write_rel(os.path.join(data_args.output_dir, 'train-virtual_rel.tsv'), query2pos)
@@ -136,12 +136,12 @@ if __name__ == '__main__':
 
 
     # select a latest ckpt
-    ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
-    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    # ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
+    # data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
 
     # update index
-    print('Updating the index with new ivf and pq')
-    learnable_index.update_index_with_ckpt(ckpt_path=ckpt_path, doc_embeddings=doc_embeddings)
+    # print('Updating the index with new ivf and pq')
+    # learnable_index.update_index_with_ckpt(ckpt_path=ckpt_path, doc_embeddings=doc_embeddings)
 
     # Test
     ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))

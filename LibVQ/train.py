@@ -18,7 +18,6 @@ from LibVQ.learnable_vq import LearnableVQ
 from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 
 
-
 def train_model(
         local_rank: int = -1,
         model: LearnableVQ = None,
@@ -52,40 +51,6 @@ def train_model(
         checkpoint_save_steps: int = None,
         logging_steps: int = 100
 ):
-    """
-
-    :param local_rank:
-    :param model:
-    :param dataset:
-    :param rel_data:
-    :param query_data_dir:
-    :param max_query_length:
-    :param doc_data_dir:
-    :param max_doc_length:
-    :param world_size:
-    :param epochs:
-    :param per_device_train_batch_size:
-    :param per_query_neg_num:
-    :param cross_device_sample:
-    :param neg_data:
-    :param query_embeddings:
-    :param doc_embeddings:
-    :param emb_size:
-    :param warmup_steps_ratio:
-    :param optimizer_class:
-    :param lr_params:
-    :param loss_weight:
-    :param temperature:
-    :param loss_method:
-    :param fix_emb:
-    :param weight_decay:
-    :param max_grad_norm:
-    :param show_progress_bar:
-    :param checkpoint_path:
-    :param checkpoint_save_steps:
-    :param logging_steps:
-    :return:
-    """
     try:
         setuplogging()
         if dataset is None:
