@@ -2,17 +2,14 @@
 We take the Passage dataset as the example.   
 
 ## Preparing Data
-Dataload data:
+Download data and convert to our format:
 ```
 bash ./prepare_data/download_data.sh
 ```
-Then convert and preprocess them to the format which is need for our dataset class: 
-```
-python ./prepare_data/convert_data_format.py
-```
 The data will be saved into `./data/passage/dataset`.
 
-## Generate Embeddings
+
+## Preprocess and Generate Embeddings 
 We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
 ```
 python ./prepare_data/get_embeddings.py  \

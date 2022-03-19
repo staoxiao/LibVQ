@@ -238,7 +238,7 @@ class LearnableIndex(FaissIndex):
                     checkpoint_save_steps=checkpoint_save_steps,
                     logging_steps=logging_steps
                     )
-        if 'query' not in fix_emb or 'doc' not in fix_emb:
+        if fix_emb is None or 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)
@@ -347,7 +347,7 @@ class LearnableIndex(FaissIndex):
                  nprocs=world_size,
                  join=True)
 
-        if 'query' not in fix_emb or 'doc' not in fix_emb:
+        if fix_emb is None or 'query' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)

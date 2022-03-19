@@ -1,12 +1,15 @@
+import sys
+sys.path.append('./')
 import os
 
 import faiss
 import numpy as np
-from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 from evaluate import validate, load_test_data
 from transformers import HfArgumentParser
 
 from LibVQ.baseindex import FaissIndex
+
+from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 
 faiss.omp_set_num_threads(32)
 
@@ -21,7 +24,7 @@ if __name__ == '__main__':
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
                                dtype=np.float32, mode="r")
     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
-    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
+    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'test-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)
 
@@ -34,10 +37,22 @@ if __name__ == '__main__':
                        dist_mode=index_args.dist_mode)
 
     print('Training the index with doc embeddings')
-    index.fit(doc_embeddings)
-    index.add(doc_embeddings)
-    index.save_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
-    # index.load_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
+
+    # res = faiss.StandardGpuResources()
+    # res.setTempMemory(30 * 1024 * 1024 * 1024)
+    # co = faiss.GpuClonerOptions()
+    # co.useFloat16 = index_args.subvector_num >= 56
+    # gpu_index = faiss.index_cpu_to_gpu(res, 0, index.index, co)
+    # gpu_index.train(doc_embeddings)
+    # gpu_index.add(doc_embeddings)
+    # print('gpu ----------------------------')
+
+    # index.fit(doc_embeddings)
+    # index.add(doc_embeddings)
+    print('cpu ------------------------------')
+
+    # index.save_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
+    index.load_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
 
     # Test the performance
     scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)

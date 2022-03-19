@@ -1,5 +1,6 @@
 import sys
 sys.path.append('./')
+
 import os
 import pickle
 
@@ -13,7 +14,7 @@ from LibVQ.models import Encoder
 from LibVQ.utils import setuplogging
 
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
-from prepare_data.get_embeddings import MS_Encoder
+from prepare_data.get_embeddings import DPR_Encoder
 
 faiss.omp_set_num_threads(32)
 

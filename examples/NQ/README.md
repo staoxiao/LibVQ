@@ -3,11 +3,11 @@
 ## Preparing Data
 Dataload data:
 ```
-bash download_data.sh
+bash ./prepare_data/download_data.sh
 ```
 Then convert and preprocess them to the format which is need for our dataset class: 
 ```
-python convert_data_format.py
+python ./prepare_data/convert_data_format.py
 ```
 The data will be saved into `./data/NQ/dataset`.
 
@@ -15,7 +15,7 @@ The data will be saved into `./data/NQ/dataset`.
 ## Generate Embeddings
 We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
 ```
-python get_embeddings.py  \
+python ./prepare_data/get_embeddings.py  \
 --data_dir ./data/NQ/dataset \
 --preprocess_dir ./data/NQ/preprocess \
 --max_doc_length 256 \
@@ -30,7 +30,7 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 ## IVFPQ
 + ### Faiss Index
 ```
-python faiss_index.py  \
+python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --output_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
@@ -38,4 +38,34 @@ python faiss_index.py  \
 --subvector_num 64 \
 --subvector_bits 8 \
 --nprobe 100
+```
+
++ ### ScaNN Index
+```
+python ./basic_index/scann_index.py  \
+--preprocess_dir ./data/passage/preprocess \
+--pretrained_model_name Luyu/co-condenser-marco-retriever \
+--output_dir ./data/passage/evaluate/co-condenser \
+--ivf_centers_num 10000 \
+--subvector_num 64 \
+--nprobe 100
+```
+
+
++ ### Learnable Index
+**Finetune the index with fixed embeddings:**  
+(need the embeddings of queries and docs)
+```
+python ./learnable_index/train_index.py  \
+--preprocess_dir ./data/passage/preprocess \
+--output_dir ./data/passage/evaluate/co-condenser \
+--query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
+--doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--index_method ivf_opq \
+--ivf_centers_num 10000 \
+--subvector_num 64 \
+--subvector_bits 8 \
+--nprobe 100 \
+--training_mode {distill_index, distill_virtual-data_index, contrastive_index} \
+--per_device_train_batch_size 512
 ```

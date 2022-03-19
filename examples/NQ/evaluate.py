@@ -148,23 +148,19 @@ def load_test_data(query_andwer_file, collections_file):
         for k, row in enumerate(reader):
             collections[int(row[0])] = (row[1], row[2])
 
+    # print(collections.keys())
+
     return questions, answers, collections
 
-
-def get_recall(ann_items, questions, answers, collections):
-    top_k_hits, result_dict = validate(ann_items, questions, answers, collections)
-
-    print(
-        f"top5:{top_k_hits[4]}, top10:{top_k_hits[9]}, top20:{top_k_hits[19]}, top50:{top_k_hits[49]}, top100:{top_k_hits[99]}")
-    print(result_dict['MRR_n@_10'], result_dict['MRR_n@_100'])
 
 
 def validate(ann_items, questions, answers, collections):
     v_dataset = V_dataset(ann_items, questions, answers, collections)
     v_dataloader = DataLoader(v_dataset, 128, shuffle=False, num_workers=20)
+    print(len(ann_items), len(questions), len(answers), len(collections))
 
     final_scores = []
-    for k, (scores, result_list, result_dict_list) in enumerate(tqdm(v_dataloader, total=len(v_dataloader))):
+    for k, scores in enumerate(tqdm(v_dataloader, total=len(v_dataloader))):
         final_scores.extend(scores)
 
     logger.info('Per question validation results len=%d', len(final_scores))
@@ -202,6 +198,7 @@ class V_dataset(Dataset):
                 hits.append(False)
                 text, title = '', ''
             else:
+                print(len(self.collections))
                 text, title = self.collections[doc_id]
                 hits.append(has_answer(self.answers[query_id], text, self.tokenizer))
 

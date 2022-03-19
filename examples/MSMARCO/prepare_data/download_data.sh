@@ -16,3 +16,6 @@ rm -r marco
 wget https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz
 tar xvfz collectionandqueries.tar.gz -C ./
 rm -r collectionandqueries.tar.gz
+
+cd ../../../
+python ./prepare_data/convert_data_format.py

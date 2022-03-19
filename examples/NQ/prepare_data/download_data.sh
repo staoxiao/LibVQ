@@ -13,4 +13,3 @@ wget https://dl.fbaipublicfiles.com/dpr/data/retriever/nq-dev.qa.csv
 
 
 wget https://dl.fbaipublicfiles.com/dpr/data/retriever/nq-test.qa.csv
-

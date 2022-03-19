@@ -1,3 +1,5 @@
+import sys
+sys.path.append('./')
 import os
 
 import numpy as np
@@ -77,11 +79,19 @@ if __name__ == '__main__':
               output_dir=data_args.output_dir,
               batch_size=10240,
               enable_rewrite=False)
+    inference(data_dir=data_args.preprocess_dir,
+              is_query=True,
+              encoder=text_encoder,
+              prefix=f'test-queries',
+              max_length=data_args.max_query_length,
+              output_dir=data_args.output_dir,
+              batch_size=10240,
+              enable_rewrite=False)
 
     # you can load the generated embeddings as following:
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
                                dtype=np.float32, mode="r")
     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
-    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
+    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'test-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)

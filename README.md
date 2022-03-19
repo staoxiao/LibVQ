@@ -32,23 +32,23 @@ Besides, we provide some examples below to illustrate the usage of LibVQ.
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- |
-[Faiss-IVFPQ](./examples/MSMARCO/faiss_index.py) | 0.1380 | 0.2820 | 0.5617 |  
-[Faiss-IVFOPQ](./examples/MSMARCO/faiss_index.py) | 0.3102 | 0.5593 | 0.8148 |  
-[Scann](./examples/MSMARCO/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
-[LibVQ(contrastive_index)](./examples/MSMARCO/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
-[LibVQ(distill_index)](./examples/MSMARCO/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
-[LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
-[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
+[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1380 | 0.2820 | 0.5617 |  
+[Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3102 | 0.5593 | 0.8148 |  
+[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
+[LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
+[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
+[LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
+[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
 
 - PQ
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
-[Faiss-PQ](./examples/MSMARCO/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
-[Faiss-OPQ](./examples/MSMARCO/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
-[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
+[Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
+[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
+[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
 
 More details please refer to [examples/MSMARCO](./examples/MSMARCO/).  
 

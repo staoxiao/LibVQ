@@ -1,3 +1,5 @@
+import sys
+sys.path.append('./')
 import os
 
 import numpy as np
@@ -58,15 +60,15 @@ if __name__ == '__main__':
                            doc_encoder=doc_encoder)
 
     # Generate embeddings of queries and docs
-    # inference(data_dir=data_args.preprocess_dir,
-    #           is_query=False,
-    #           encoder=text_encoder,
-    #           prefix=f'docs',
-    #           max_length=data_args.max_doc_length,
-    #           output_dir=data_args.output_dir,
-    #           batch_size=10240,
-    #           enable_rewrite=False,
-    #           return_vecs=False)
+    inference(data_dir=data_args.preprocess_dir,
+              is_query=False,
+              encoder=text_encoder,
+              prefix=f'docs',
+              max_length=data_args.max_doc_length,
+              output_dir=data_args.output_dir,
+              batch_size=10240,
+              enable_rewrite=False,
+              return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
               is_query=True,
               encoder=text_encoder,
@@ -76,15 +78,15 @@ if __name__ == '__main__':
               batch_size=10240,
               enable_rewrite=False,
               return_vecs=False)
-    # inference(data_dir=data_args.preprocess_dir,
-    #           is_query=True,
-    #           encoder=text_encoder,
-    #           prefix=f'train-queries',
-    #           max_length=data_args.max_query_length,
-    #           output_dir=data_args.output_dir,
-    #           batch_size=10240,
-    #           enable_rewrite=False,
-    #           return_vecs=False)
+    inference(data_dir=data_args.preprocess_dir,
+              is_query=True,
+              encoder=text_encoder,
+              prefix=f'train-queries',
+              max_length=data_args.max_query_length,
+              output_dir=data_args.output_dir,
+              batch_size=10240,
+              enable_rewrite=False,
+              return_vecs=False)
 
     # you can load the generated embeddings as following:
     doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
