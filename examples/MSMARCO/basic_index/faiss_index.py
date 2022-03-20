@@ -16,14 +16,12 @@ if __name__ == '__main__':
     parser = HfArgumentParser((IndexArguments, DataArguments, ModelArguments, TrainingArguments))
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
-    os.makedirs(data_args.output_dir, exist_ok=True)
-
     # Load embeddings
     emb_size = 768
-    doc_embeddings = np.memmap(os.path.join(data_args.output_dir, 'docs.memmap'),
+    doc_embeddings = np.memmap(os.path.join(data_args.embeddings_dir, 'docs.memmap'),
                                dtype=np.float32, mode="r")
     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
-    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
+    query_embeddings = np.memmap(os.path.join(data_args.embeddings_dir, 'dev-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)
 
@@ -38,8 +36,8 @@ if __name__ == '__main__':
     print('Training the index with doc embeddings')
     index.fit(doc_embeddings)
     index.add(doc_embeddings)
-    index.save_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
-    # index.load_index(os.path.join(data_args.output_dir, f'{index_args.index_method}.index'))
+    index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+    # index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
 
     # Test the performance
     ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))

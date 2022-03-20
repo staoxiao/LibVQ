@@ -31,8 +31,7 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 ```
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
---output_dir ./data/passage/evaluate/co-condenser \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method ivf_pq \
 --ivf_centers_num 10000 \
 --subvector_num 32 \
@@ -44,8 +43,7 @@ python ./basic_index/faiss_index.py  \
 ```
 python ./basic_index/scann_index.py  \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
---output_dir ./data/passage/evaluate/co-condenser \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --ivf_centers_num 10000 \
 --subvector_num 32 \
 --nprobe 100
@@ -58,15 +56,24 @@ python ./basic_index/scann_index.py  \
 ```
 python ./learnable_index/train_index.py  \
 --preprocess_dir ./data/passage/preprocess \
---output_dir ./data/passage/evaluate/co-condenser \
---query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
---doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method ivf_opq \
 --ivf_centers_num 10000 \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode {distill_index, distill_virtual-data_index, contrastive_index} \
+--training_mode {distill_index, distill_index_nolabel, contrastive_index} \
+--per_device_train_batch_size 512
+
+python ./learnable_index/train_index.py  \
+--preprocess_dir ./data/passage/preprocess \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
+--index_method ivf_opq \
+--ivf_centers_num 10000 \
+--subvector_num 32 \
+--subvector_bits 8 \
+--nprobe 100 \
+--training_mode distill_index \
 --per_device_train_batch_size 512
 ```
 
@@ -79,15 +86,13 @@ python ./learnable_index/train_index_and_encoder.py  \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
---output_dir ./data/passage/evaluate/co-condenser \
---query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
---doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method ivf_opq \
 --ivf_centers_num 10000 \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode {distill_jointly, distill_virtual-data_jointly, contrastive_jointly} \
+--training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} \
 --per_device_train_batch_size 512
 
 
@@ -97,21 +102,19 @@ python ./learnable_index/train_index_and_encoder.py  \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
---output_dir ./data/passage/evaluate/co-condenser \
---query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
---doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method ivf_opq \
 --ivf_centers_num 10000 \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode distill_virtual-data_jointly \
+--training_mode distill_index-and-query-encoder_nolabel \
 --per_device_train_batch_size 512
 ```
 We provide several different training modes:
-1. **contrastive**: contrastive learning;
-2. **distill**: knowledge distillation; transfer knowledge (i.e., the order of docs) from the dense vector to the IVF and PQ
-3. **distill_virtual-data**: knowledge distillation for non-label data; in this way, 
+1. **contrastive_()**: contrastive learning;
+2. **distill_()**: knowledge distillation; transfer knowledge (i.e., the order of docs) from the dense vector to the IVF and PQ
+3. **distill_()_nolabel**: knowledge distillation for non-label data; in this way, 
 first to find the top-k docs for each train queries by brute-force search (or a index with high performance), 
 then use these results to form a new train data.    
 
@@ -122,15 +125,14 @@ More details of implementation please refer to [train_index.py](train_index.py) 
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- |
-Faiss-IVFPQ | 0.1380 | 0.2820 | 0.5617 |  
-Faiss-IVFOPQ | 0.3102 | 0.5593 | 0.8148 |  
-Scann | 0.1791 | 0.3499 | 0.6345 | 
-LearnableIndex(contrastive_index) | 0.3179 | 0.5724 | 0.8214 | 
-LearnableIndex(distill_index) | 0.3253 | 0.5765 | 0.8256 | 
-LearnableIndex(contrastive_jointly) | 0.3192 | 0.5799 | 0.8427 |  
-LearnableIndex(distill_jointly) | **0.3311** | **0.5907** | **0.8429** |  
-LearnableIndex(distill_virtual-data_jointly) | 0.3285 | 0.5875 | 0.8401 | 
-
+[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1380 | 0.2820 | 0.5617 |  
+[Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3102 | 0.5593 | 0.8148 |  
+[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
+[LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
+[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
+[LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
+[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
 
 
 
@@ -142,8 +144,7 @@ For example:
 ```
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
---output_dir ./data/passage/evaluate/co-condenser \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method pq \
 --subvector_num 32 \
 --subvector_bits 8 
@@ -157,22 +158,21 @@ python ./learnable_index/train_index_and_encoder.py  \
 --pretrained_model_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
---output_dir ./data/passage/evaluate/co-condenser \
---query_embeddings_file ./data/passage/evaluate/co-condenser/train-queries.memmap \
---doc_embeddings_file  ./data/passage/evaluate/co-condenser/docs.memmap \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
 --index_method opq \
 --subvector_num 32 \
 --subvector_bits 8 \
---training_mode distill_jointly_v2 \
+--training_mode distill_index-and-two-encoders \
 --per_device_train_batch_size 128
 ```
 
 + ### Results
+
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
-Faiss-PQ | 0.1145 | 0.2369 | 0.5046 |  
-Faiss-OPQ | 0.3268 | 0.5939 | 0.8651 |    
-LearnableIndex(distill_jointly) | 0.3437 | 0.6201 | 0.8819 | 
-LearnableIndex(distill_jointly_v2) | **0.3475** | **0.6223** | **0.8901** |  
- 
+[Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
+[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
+[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
+
 

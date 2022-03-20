@@ -1,3 +1,10 @@
+
+a = 0
+
+if 1 >= a >= 0:
+    print(a)
+
+
 from transformers import DPRContextEncoder, DPRContextEncoderTokenizer
 
 tokenizer = DPRContextEncoderTokenizer.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")

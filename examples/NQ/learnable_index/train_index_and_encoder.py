@@ -7,6 +7,7 @@ import pickle
 import faiss
 import numpy as np
 from transformers import HfArgumentParser, AdamW
+from transformers import DPRContextEncoder, DPRQuestionEncoder, AutoConfig
 
 from LibVQ.dataset.dataset import load_rel, write_rel
 from LibVQ.learnable_index import LearnableIndex
@@ -15,6 +16,7 @@ from LibVQ.utils import setuplogging
 
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 from prepare_data.get_embeddings import DPR_Encoder
+from evaluate import validate, load_test_data
 
 faiss.omp_set_num_threads(32)
 
@@ -24,17 +26,10 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    # config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
-    # config.pretrained_model_name = model_args.pretrained_model_name
-    # config.use_two_encoder = model_args.use_two_encoder
-    # config.sentence_pooling_method = model_args.sentence_pooling_method
-    # text_encoder = Encoder(config)
-    # emb_size = text_encoder.output_embedding_size
-
-    query_encoder = MS_Encoder(model_args.pretrained_model_name)
-    doc_encoder = MS_Encoder(model_args.pretrained_model_name)
-    emb_size = doc_encoder.output_embedding_size
-
+    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    emb_size = config.hidden_size
     text_encoder = Encoder(query_encoder=query_encoder,
                            doc_encoder=doc_encoder)
 
@@ -43,7 +38,7 @@ if __name__ == '__main__':
                                dtype=np.float32, mode="r")
     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
 
-    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'dev-queries.memmap'),
+    query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'test-queries.memmap'),
                                  dtype=np.float32, mode="r")
     query_embeddings = query_embeddings.reshape(-1, emb_size)
     train_query_embeddings = np.memmap(os.path.join(data_args.output_dir, 'train-queries.memmap'),
@@ -69,6 +64,7 @@ if __name__ == '__main__':
         trainquery2hardneg = learnable_index.hard_negative(train_query_embeddings, train_ground_truths, topk=400,
                                                            batch_size=64)
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
+        del trainquery2hardneg
 
     # contrastive learning
     if training_args.training_mode == 'contrastive_jointly':
@@ -186,46 +182,28 @@ if __name__ == '__main__':
                                             fix_emb='doc',
                                             epochs=30)
 
-    # select a latest ckpt
-    # ckpt_path = learnable_index.get_latest_ckpt(data_args.save_ckpt_dir)
 
     # update query embeddings when re-training the query encoder
-    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    data_args.output_dir = f'./data/NQ/evaluate/LearnableIndex_{training_args.training_mode}'
     # learnable_index.update_encoder(encoder_file=f'{ckpt_path}/encoder.bin')
     new_query_embeddings = learnable_index.encode(data_dir=data_args.preprocess_dir,
-                                                  prefix='dev-queries',
+                                                  prefix='test-queries',
                                                   max_length=data_args.max_query_length,
                                                   output_dir=data_args.output_dir,
                                                   batch_size=8196,
                                                   is_query=True,
                                                   return_vecs=True
                                                   )
-    # print(f'{data_args.output_dir}/dev-queries.memmap')
-    # new_query_embeddings = np.memmap(f'{data_args.output_dir}/dev-queries.memmap', dtype=np.float32,
-    #                              mode="r")
-    # new_query_embeddings = new_query_embeddings.reshape(-1, emb_size)
-
-    # update doc embeddings when re-training the doc encoder
-    # if training_args.training_mode == 'distill_jointly_v2':
-    #     learnable_index.encode(data_dir=data_args.preprocess_dir,
-    #                            prefix='docs',
-    #                            max_length=data_args.max_doc_length,
-    #                            output_dir=data_args.output_dir,
-    #                            batch_size=8196,
-    #                            is_query=False,
-    #                            )
-    #     print(f'{data_args.output_dir}/docs.memmap')
-    #     doc_embeddings = np.memmap(f'{data_args.output_dir}/docs.memmap', dtype=np.float32,
-    #                                      mode="r")
-    #     doc_embeddings = doc_embeddings.reshape(-1, emb_size)
-
-    # update index
-    # print('Updating the index with new ivf and pq')
-    # learnable_index.update_index_with_ckpt(ckpt_path=ckpt_path, doc_embeddings=doc_embeddings)
 
     # Test
-    ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))
-    learnable_index.test(new_query_embeddings, ground_truths, topk=1000, batch_size=64,
-                         MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
-                         nprobe=index_args.nprobe)
-    learnable_index.save_index(f'{data_args.output_dir}/learnable_index.index')
+    scores, ann_items = learnable_index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)
+    test_questions, test_answers, collections = load_test_data(
+        query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
+        collections_file='./data/NQ/dataset/collection.tsv')
+
+    print(len(doc_embeddings), len(collections))
+
+    validate(ann_items, test_questions, test_answers, collections)
+
+    learnable_index.save_index(f'{data_args.output_dir}/learnable_index{training_args.training_mode}.index')
+

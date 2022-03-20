@@ -57,7 +57,20 @@ if __name__ == '__main__':
     # Test the performance
     scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)
 
-    test_questions, test_answers, passage_text = load_test_data(
+    # print('-----random--------')
+    # import random
+    # doc_list = list(range(len(doc_embeddings)))
+    # ann_items = []
+    # for i in range(len(scores)):
+    #     # ann_items.append(random.sample(doc_list, 100))
+    #     ann_items.append([0]*100)
+
+
+
+    test_questions, test_answers, collections = load_test_data(
         query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
         collections_file='./data/NQ/dataset/collection.tsv')
-    validate(ann_items, test_questions, test_answers, passage_text)
+
+    print(len(doc_embeddings), len(collections))
+
+    validate(ann_items, test_questions, test_answers, collections)

@@ -18,10 +18,8 @@ class DataArguments:
     data_dir: str = field(default='./data/passage/dataset', metadata={"help": "The path to preprocessed data"})
     preprocess_dir: str = field(default='./data/passage/preprocess', metadata={"help": "The path to preprocessed data"})
     neg_file: str = field(default=None, metadata={"help": "The path to negative.json"})
-    doc_embeddings_file: str = field(default=None, metadata={
-        "help": "The path to embeddings, and the embeddings should be saved as .npy or .memmap"})
-    query_embeddings_file: str = field(default=None, metadata={
-        "help": "The path to embeddings, and the embeddings should be saved as .npy or .memmap"})
+    embeddings_dir: str = field(default=None, metadata={
+        "help": "The path to embeddings, including embeddings of docs and queries"})
     save_ckpt_dir: str = field(default='./saved_ckpts/')
     load_encoder_dir: str = field(default=None)
     output_dir: str = field(default=None)

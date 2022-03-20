@@ -136,53 +136,54 @@ class Tokens(object):
 def load_test_data(query_andwer_file, collections_file):
     questions = []
     answers = []
-    with open(query_andwer_file, "r", encoding="utf-8") as ifile:
-        reader = csv.reader(ifile, delimiter='\t')
-        for row in reader:
-            questions.append(row[0])
-            answers.append(eval(row[1]))
+    for line in open(query_andwer_file, encoding='utf-8'):
+        line = line.strip().split('\t')
+        questions.append(line[0])
+        answers.append(eval(line[1]))
 
     collections = {}
-    with open(collections_file) as fin:
-        reader = csv.reader(fin, delimiter='\t')
-        for k, row in enumerate(reader):
-            collections[int(row[0])] = (row[1], row[2])
-
-    # print(collections.keys())
-
+    for line in open(collections_file, encoding='utf-8'):
+        line = line.strip().split('\t')
+        collections[int(line[0])] = (line[1], line[2])
     return questions, answers, collections
 
 
 
 def validate(ann_items, questions, answers, collections):
+    # print(ann_items)
     v_dataset = V_dataset(ann_items, questions, answers, collections)
-    v_dataloader = DataLoader(v_dataset, 128, shuffle=False, num_workers=20)
-    print(len(ann_items), len(questions), len(answers), len(collections))
+    v_dataloader = DataLoader(v_dataset, batch_size=128, shuffle=False, num_workers=24, collate_fn=DataCollator())
+    # print(len(ann_items), len(questions), len(answers), len(collections))
 
     final_scores = []
     for k, scores in enumerate(tqdm(v_dataloader, total=len(v_dataloader))):
+        # print(scores)
         final_scores.extend(scores)
+    # print(len(final_scores))
 
-    logger.info('Per question validation results len=%d', len(final_scores))
     n_docs = len(ann_items[0])
     top_k_hits = [0] * n_docs
     for question_hits in final_scores:
+        # print(len(question_hits))
+
         best_hit = next((i for i, x in enumerate(question_hits) if x), None)
+        # print(question_hits, best_hit)
         if best_hit is not None:
+            # print(question_hits, best_hit)
             top_k_hits[best_hit:] = [v + 1 for v in top_k_hits[best_hit:]]
 
-    logger.info('Validation results: top k documents hits %s', top_k_hits)
     top_k_hits = [v / len(ann_items) for v in top_k_hits]
-    logger.info('Validation results: top k documents hits accuracy %s', top_k_hits)
 
     print(
-        f"top5:{top_k_hits[4]}, top10:{top_k_hits[9]}, top20:{top_k_hits[19]}, top50:{top_k_hits[49]}, top100:{top_k_hits[99]}")
+        f"top5:{top_k_hits[4]}, top10:{top_k_hits[9]}, top20:{top_k_hits[19]}, top30:{top_k_hits[29]}, top50:{top_k_hits[49]}, top100:{top_k_hits[99]}")
 
 
 class V_dataset(Dataset):
     def __init__(self,
                  ann_items, questions, answers, collections
                  ):
+        # print("ann_items", ann_items)
+        # print("ans", answers)
         self.questions = questions
         self.collections = collections
         self.answers = answers
@@ -196,13 +197,16 @@ class V_dataset(Dataset):
         for i, doc_id in enumerate(doc_ids):
             if doc_id == -1:
                 hits.append(False)
-                text, title = '', ''
+                title, text = '', ''
             else:
-                print(len(self.collections))
-                text, title = self.collections[doc_id]
+                title, text = self.collections[doc_id]
                 hits.append(has_answer(self.answers[query_id], text, self.tokenizer))
-
         return hits
 
     def __len__(self):
         return len(self.ann_items)
+
+
+class DataCollator():
+    def __call__(self, batch_hits):
+        return [x for x in batch_hits]
