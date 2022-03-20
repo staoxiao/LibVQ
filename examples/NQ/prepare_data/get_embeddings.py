@@ -39,13 +39,6 @@ if __name__ == '__main__':
                         workers_num=64)
 
     # Load encoder
-    # config = EncoderConfig.from_pretrained(model_args.pretrained_model_name)
-    # config.pretrained_model_name = model_args.pretrained_model_name
-    # config.use_two_encoder = model_args.use_two_encoder
-    # config.sentence_pooling_method = model_args.sentence_pooling_method
-    # text_encoder = Encoder(config)
-    # emb_size = text_encoder.output_embedding_size
-
     doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
     query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
     config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")

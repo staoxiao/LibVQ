@@ -67,6 +67,6 @@ def get_test(file):
 if __name__ == '__main__':
     os.makedirs('./data/NQ/dataset', exist_ok=True)
     get_collection('./data/NQ/raw_dataset/psgs_w100.tsv')
-    # get_train('./data/NQ/raw_dataset/biencoder-nq-train.json')
+    get_train('./data/NQ/raw_dataset/biencoder-nq-train.json')
     get_dev('./data/NQ/raw_dataset/nq-dev.qa.csv')
     get_test('./data/NQ/raw_dataset/nq-test.qa.csv')

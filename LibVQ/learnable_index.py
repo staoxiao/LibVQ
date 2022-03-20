@@ -59,7 +59,7 @@ class LearnableIndex(FaissIndex):
                                     dist_mode=dist_mode)
 
             if init_index_file is None:
-                index_file = f'./temp/{index_method}.index'
+                init_index_file = f'./temp/{index_method}.index'
                 os.makedirs('./temp', exist_ok=True)
             logging.info(f"save the init index to {init_index_file}")
             self.index.save_index(init_index_file)
@@ -99,6 +99,7 @@ class LearnableIndex(FaissIndex):
                 codebook.ravel(),
                 self.index.pq.centroids)
 
+        logging.info(f"updating the quantized results of docs' embeddings")
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
         self.index.add(doc_embeddings)
 

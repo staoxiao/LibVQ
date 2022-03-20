@@ -13,3 +13,6 @@ wget https://dl.fbaipublicfiles.com/dpr/data/retriever/nq-dev.qa.csv
 
 
 wget https://dl.fbaipublicfiles.com/dpr/data/retriever/nq-test.qa.csv
+
+cd ../../../
+python ./prepare_data/convert_data_format.py

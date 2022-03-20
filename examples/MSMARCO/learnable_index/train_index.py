@@ -53,9 +53,13 @@ if __name__ == '__main__':
     # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
     neg_file = os.path.join(data_args.embeddings_dir, f"train-queries_hardneg.pickle")
     if not os.path.exists(neg_file):
+        print('generating hard negatives for train queries ...')
         train_ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'train-rels.tsv'))
-        trainquery2hardneg = learnable_index.hard_negative(train_query_embeddings, train_ground_truths, topk=400,
-                                                           batch_size=64)
+        trainquery2hardneg = learnable_index.hard_negative(train_query_embeddings,
+                                                           train_ground_truths,
+                                                           topk=400,
+                                                           batch_size=64,
+                                                           nprobe=min(index_args.ivf_centers_num, 1000))
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
 
     # contrastive learning
@@ -107,15 +111,17 @@ if __name__ == '__main__':
 
     # distill with no label data
     if training_args.training_mode == 'distill_index_nolabel':
-
         # generate train data by brute-force or the index which should has similar performance with brute force
         if not os.path.exists(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv')):
-            flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
-            # query2pos, query2neg = trainquery2hardneg = flat_index.generate_virtual_traindata(train_query_embeddings,
+            print('generating relevance labels for train queries ...')
+            # flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
+            # query2pos, query2neg = flat_index.generate_virtual_traindata(train_query_embeddings,
             #                                                                                        topk=400, batch_size=64)
             # or
             query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
-                                                                              topk=400, batch_size=64)
+                                                                              topk=400,
+                                                                              batch_size=64,
+                                                                              nprobe=min(index_args.ivf_centers_num, 1000))
 
             write_rel(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'), query2pos)
             pickle.dump(query2neg,
