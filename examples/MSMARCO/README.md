@@ -64,17 +64,6 @@ python ./learnable_index/train_index.py  \
 --nprobe 100 \
 --training_mode {distill_index, distill_index_nolabel, contrastive_index} \
 --per_device_train_batch_size 512
-
-python ./learnable_index/train_index.py  \
---preprocess_dir ./data/passage/preprocess \
---embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 32 \
---subvector_bits 8 \
---nprobe 100 \
---training_mode distill_index \
---per_device_train_batch_size 512
 ```
 
 **Jointly train index and query encoder (always has a better performance):**  
@@ -93,22 +82,6 @@ python ./learnable_index/train_index_and_encoder.py  \
 --subvector_bits 8 \
 --nprobe 100 \
 --training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} \
---per_device_train_batch_size 512
-
-
-python ./learnable_index/train_index_and_encoder.py  \
---data_dir ./data/passage/dataset \
---preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
---max_doc_length 256 \
---max_query_length 32 \
---embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 32 \
---subvector_bits 8 \
---nprobe 100 \
---training_mode distill_index-and-query-encoder_nolabel \
 --per_device_train_batch_size 512
 ```
 We provide several different training modes:

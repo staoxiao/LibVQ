@@ -35,13 +35,33 @@ if __name__ == '__main__':
                        dist_mode=index_args.dist_mode)
 
     print('Training the index with doc embeddings')
-    # index.fit(doc_embeddings)
-    # index.add(doc_embeddings)
-    # index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
-    index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+    index.CPU_to_GPU(0)
+    index.fit(doc_embeddings)
+    index.add(doc_embeddings)
+    index.GPU_to_CPU()
+    index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+    # index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
 
     # Test the performance
-    scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)
+    # scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)
+    # test_questions, test_answers, collections = load_test_data(
+    #     query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
+    #     collections_file='./data/NQ/dataset/collection.tsv')
+    # validate(ann_items, test_questions, test_answers, collections)
+
+    scores, ann_items = index.search(query_embeddings, topk=100, nprobe=1)
+    test_questions, test_answers, collections = load_test_data(
+        query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
+        collections_file='./data/NQ/dataset/collection.tsv')
+    validate(ann_items, test_questions, test_answers, collections)
+
+    scores, ann_items = index.search(query_embeddings, topk=100, nprobe=10)
+    test_questions, test_answers, collections = load_test_data(
+        query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
+        collections_file='./data/NQ/dataset/collection.tsv')
+    validate(ann_items, test_questions, test_answers, collections)
+
+    scores, ann_items = index.search(query_embeddings, topk=100, nprobe=100)
     test_questions, test_answers, collections = load_test_data(
         query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
         collections_file='./data/NQ/dataset/collection.tsv')

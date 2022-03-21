@@ -31,10 +31,10 @@ python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 64 \
+--ivf_centers_num 100 \
+--subvector_num 8 \
 --subvector_bits 8 \
---nprobe 100
+--nprobe 1
 ```
 
 + ### ScaNN Index
@@ -89,10 +89,10 @@ python ./learnable_index/train_index_and_encoder.py  \
 --max_query_length 32 \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 10000 \
+--ivf_centers_num 100 \
 --subvector_num 32 \
 --subvector_bits 8 \
---nprobe 100 \
+--nprobe 1 \
 --training_mode distill_index-and-query-encoder \
 --per_device_train_batch_size 512
 
@@ -110,9 +110,9 @@ More details of implementation please refer to [train_index.py](train_index.py) 
 + ### Results
 n=1 
 
-Methods | Recall@5 | Recall@10 | Recall@10 | Recall@100 | 
+Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 | 
 ------- | ------- | ------- |  ------- |  ------- |
-[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3781 | 0.4296 | 0.4786 | 0.5819 |  
+[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.4662 | 0.5260 | 0.5825 | 0.6819 |  
 [Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. |  
 [Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0. | 0. | 0. | 
 [LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
@@ -125,7 +125,7 @@ n=100
 
 Methods | Recall@10 | Recall@10 | Recall@20 | Recall@100 | 
 ------- | ------- | ------- |  ------- |  ------- |
-[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.6551 | 0.7199 | 0.7673 | 0.8409 |  
+[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. | 0. |  
 [Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. |  
 [Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0. | 0. | 0. | 
 [LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
@@ -144,8 +144,8 @@ For example:
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
---index_method pq \
---subvector_num 32 \
+--index_method opq \
+--subvector_num 8 \
 --subvector_bits 8 
 ```
 
@@ -158,7 +158,7 @@ python ./learnable_index/train_index_and_encoder.py  \
 --max_query_length 32 \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method opq \
---subvector_num 32 \
+--subvector_num 8 \
 --subvector_bits 8 \
 --training_mode distill_index-and-two-encoders \
 --per_device_train_batch_size 128
@@ -166,11 +166,11 @@ python ./learnable_index/train_index_and_encoder.py  \
 
 + ### Results
 
-Methods | MRR@10 | Recall@10 | Recall@100 | 
-------- | ------- | ------- |  ------- | 
-[Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
-[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
-[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
+Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
+------- | ------- | ------- |  ------- | ------- | 
+[Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3166 | 0.4105 | 0.4961 | 0.6836  
+[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. | 
+[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.** | **0.** | **0.** |  
 
 

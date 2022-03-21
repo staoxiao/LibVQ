@@ -63,8 +63,7 @@ learnable_index = LearnableIndex(doc_embeddings = doc_embeddings,
 **3.  Train index**  
 `fit` function will train the parameters of pq and ivf (if has) based on the relevance relationship between query and doc.
 ```python
-learnable_index.fit(model = learnable_index.learnable_vq,
-                    rel_data = query2pos,          # relevance relationship; if set it None, we will generate the data based no init index
+learnable_index.fit(rel_data = query2pos,          # relevance relationship; if set it None, we will generate the data based no init index
                     query_embeddings = query_embeddings,
                     doc_embeddings = doc_embeddings,
                     checkpoint_path = './temp/',   # the parameters of index will saved to this path
@@ -81,7 +80,8 @@ For distributed training on multi GPUs, you cans use `fit_with_multi_gpus`.
 **We recommend to jointly train the encoder and index, which can get the best performance.**  
 **1. Prepare encoder and data**  
 For this method, you should prepare a trained encoder and the text data:
-- The encoder should inherit the class [BaseEncoder](./LibVQ/models/encoder.py) or have the same functions.
+- You can create the Enocder by passing the query encoder and doc encoder: `Encoder(query_encoder, doc_encoder)`, 
+or you can create a new encoder class by inherit the class [BaseEncoder](./LibVQ/models/encoder.py).
 - Please refer to [dataset.README](./LibVQ/dataset/README.md)
 for the data format, or you can overwrite the [DatasetForVQ](./LibVQ/dataset/dataset.py) for your data.
 
@@ -124,8 +124,7 @@ learnable_index = LearnableIndex(encoder=encoder,
 ```
 **3.  Train index and encoder**  
 ```python
-learnable_index.fit(model = learnable_index.learnable_vq,
-                    rel_data = query2pos,
+learnable_index.fit(rel_data = query2pos,
                     query_embeddings = query_embeddings,
                     doc_embeddings = doc_embeddings,
                     query_data_dir = preprocess_dir, # give the query data when train query encoder
