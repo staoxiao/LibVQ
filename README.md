@@ -28,7 +28,7 @@ Besides, we provide some examples below to illustrate the usage of LibVQ.
 
 ## Examples
 ### [MSMARCO](./examples/MSMARCO/)  
-- IVFPQ    
+- IVFPQ (Compression Ratio = 96)   
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- |
@@ -41,7 +41,7 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 [LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
 [LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
 
-- PQ
+- PQ (Compression Ratio = 96) 
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
@@ -52,7 +52,7 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 
 
 ### [NQ](./examples/NQ/)  
-- IVFPQ    
+- IVFPQ  (Compression Ratio = 384) 
 
 Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 | 
 ------- | ------- | ------- |  ------- |  ------- |
@@ -69,7 +69,7 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 
 
 
-- PQ  
+- PQ  (Compression Ratio = 384) 
 
 Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 ------- | ------- | ------- |  ------- | ------- | 
