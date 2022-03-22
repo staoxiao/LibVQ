@@ -49,3 +49,13 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 [Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
 [LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
 [LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
+
+
+### [NQ](./examples/NQ/)  
+- IVFPQ    
+
+
+
+
+- PQ  
+

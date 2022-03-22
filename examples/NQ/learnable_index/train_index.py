@@ -65,16 +65,17 @@ if __name__ == '__main__':
 
     # contrastive learning
     if training_args.training_mode == 'contrastive_index':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
+                                            per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            per_device_train_batch_size=512,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
@@ -88,17 +89,17 @@ if __name__ == '__main__':
 
     # distill based on fixed embeddigns of queries and docs
     if training_args.training_mode == 'distill_index':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
-                                            per_query_neg_num=1,
+                                            per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            per_device_train_batch_size=64,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
@@ -108,7 +109,7 @@ if __name__ == '__main__':
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='query, doc',
-                                            epochs=30)
+                                            epochs=10)
 
     # distill with no label data
     if training_args.training_mode == 'distill_index_nolabel':
@@ -129,17 +130,17 @@ if __name__ == '__main__':
             pickle.dump(query2neg,
                         open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries-virtual_hardneg.pickle"),
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
-                                            per_query_neg_num=1,
+                                            per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=training_args.per_device_train_batch_size,
+                                            per_device_train_batch_size=64,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
@@ -149,7 +150,7 @@ if __name__ == '__main__':
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='query, doc',
-                                            epochs=30)
+                                            epochs=10)
 
     # Test
     scores, ann_items = learnable_index.search(test_query_embeddings, topk=100, nprobe=index_args.nprobe)
@@ -158,4 +159,6 @@ if __name__ == '__main__':
         collections_file='./data/NQ/dataset/collection.tsv')
     validate(ann_items, test_questions, test_answers, collections)
 
-    learnable_index.save_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}.index')
+
+    learnable_index.save_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
+    learnable_index.load_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')

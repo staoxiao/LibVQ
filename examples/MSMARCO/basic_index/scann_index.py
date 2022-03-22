@@ -33,3 +33,7 @@ if __name__ == '__main__':
     ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))
     index.test(query_embeddings, ground_truths, topk=1000, nprobe=index_args.nprobe,
                MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100])
+
+    ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))
+    index.test(query_embeddings, ground_truths, topk=1000, nprobe=index_args.ivf_centers_num,
+               MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100])

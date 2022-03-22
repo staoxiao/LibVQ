@@ -30,11 +30,11 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
---index_method ivf_opq \
---ivf_centers_num 100 \
+--index_method ivf_pq \
+--ivf_centers_num 1000 \
 --subvector_num 8 \
 --subvector_bits 8 \
---nprobe 1
+--nprobe 10
 ```
 
 + ### ScaNN Index
@@ -42,9 +42,9 @@ python ./basic_index/faiss_index.py  \
 python ./basic_index/scann_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
---ivf_centers_num 10000 \
---subvector_num 32 \
---nprobe 100
+--ivf_centers_num 1000 \
+--subvector_num 8 \
+--nprobe 10
 ```
 
 
@@ -60,8 +60,7 @@ python ./learnable_index/train_index.py  \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode {distill_index, distill_index_nolabel, contrastive_index} \
---per_device_train_batch_size 512
+--training_mode {distill_index, distill_index_nolabel, contrastive_index} 
 ```
 
 **Jointly train index and query encoder (always has a better performance):**  
@@ -78,24 +77,7 @@ python ./learnable_index/train_index_and_encoder.py  \
 --subvector_num 32 \
 --subvector_bits 8 \
 --nprobe 100 \
---training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} \
---per_device_train_batch_size 512
-
-
-python ./learnable_index/train_index_and_encoder.py  \
---data_dir ./data/NQ/dataset \
---preprocess_dir ./data/NQ/preprocess \
---max_doc_length 256 \
---max_query_length 32 \
---embeddings_dir ./data/NQ/evaluate/dpr \
---index_method ivf_opq \
---ivf_centers_num 100 \
---subvector_num 32 \
---subvector_bits 8 \
---nprobe 1 \
---training_mode distill_index-and-query-encoder \
---per_device_train_batch_size 512
-
+--training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} 
 ```
 We provide several different training modes:
 1. **contrastive_()**: contrastive learning;
@@ -108,31 +90,19 @@ More details of implementation please refer to [train_index.py](train_index.py) 
 
 
 + ### Results
-n=1 
 
 Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 | 
 ------- | ------- | ------- |  ------- |  ------- |
-[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.4662 | 0.5260 | 0.5825 | 0.6819 |  
-[Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. |  
-[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0. | 0. | 0. | 
-[LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
-[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
-[LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. |  
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.** | **0.** | **0.** |  
-[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. | 
+[Faiss-IVFPQ](./examples/NQ/basic_index/faiss_index.py) | 0.1504 | 0.2052 | 0.2722 | 0.4523 |  
+[Faiss-IVFOPQ](./examples/NQ/basic_index/faiss_index.py) | 0.3332 | 0.4279 | 0.5110 | 0.6817 |  
+[Scann](./examples/NQ/basic_index/scann_index.py) | 0.2526 | 0.3351 | 0.4144 | 0.6016 |
+[LibVQ(contrastive_index)](./examples/NQ/learnable_index/train_index.py) | 0.3398 | 0.4415 | 0.5232 | 0.6911 
+[LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3952** | 0.4900 | 0.5667 | 0.7232
+[LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | **0.4066** | **0.4936** | **0.5759** | **0.7301**
+[LibVQ(contrastive_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3548 | 0.4470 | 0.5390 | 0.7120 
+[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3759 | 0.4698 | 0.5515 | 0.7121 
+[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3878 | 0.4789 | 0.5523 | 0.7152
 
-n=100
-
-Methods | Recall@10 | Recall@10 | Recall@20 | Recall@100 | 
-------- | ------- | ------- |  ------- |  ------- |
-[Faiss-IVFPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. | 0. |  
-[Faiss-IVFOPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0. | 0. | 0. |  
-[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0. | 0. | 0. | 
-[LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
-[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0. | 0. | 0. | 
-[LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. |  
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.** | **0.** | **0.** |  
-[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. | 
 
 
 
@@ -141,15 +111,19 @@ Methods | Recall@10 | Recall@10 | Recall@20 | Recall@100 |
 For PQ, you can reuse above commands and only change the `--index_method` to `pq` or `opq`.
 For example:
 ```
-python ./basic_index/faiss_index.py  \
+python ./learnable_index/train_index.py  \
+--data_dir ./data/NQ/dataset \
 --preprocess_dir ./data/NQ/preprocess \
+--max_doc_length 256 \
+--max_query_length 32 \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method opq \
 --subvector_num 8 \
---subvector_bits 8 
+--subvector_bits 8 \
+--training_mode distill_index
 ```
 
-Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_jointly_v2`).
+Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_index-and-two-encoders`).
 ```
 python ./learnable_index/train_index_and_encoder.py  \
 --data_dir ./data/NQ/dataset \
@@ -160,17 +134,22 @@ python ./learnable_index/train_index_and_encoder.py  \
 --index_method opq \
 --subvector_num 8 \
 --subvector_bits 8 \
---training_mode distill_index-and-two-encoders \
---per_device_train_batch_size 128
+--training_mode distill_index-and-two-encoders
 ```
+
+
 
 + ### Results
 
 Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 ------- | ------- | ------- |  ------- | ------- | 
-[Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3166 | 0.4105 | 0.4961 | 0.6836  
-[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0. | 0. | 0. | 
-[LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.** | **0.** | **0.** |  
+[Faiss-PQ](./examples/NQ/basic_index/faiss_index.py) | 0.1301 | 0.1861 | 0.2495 | 0.4188  
+[Faiss-OPQ](./examples/NQ/basic_index/faiss_index.py) | 0.3166 | 0.4105 | 0.4961 | 0.6836  
+[Scann](./examples/NQ/basic_index/scann_index.py) | 0.2526 | 0.3351 | 0.4144 | 0.6013 |
+[LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3817 | 0.4806 | 0.5681 | 0.7357  
+[LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | 0.3880 | 0.4858 | 0.5819 | 0.7423    
+[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
+[LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.4426** | **0.5376** | **0.6191** | **0.7709**  
+[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3889 | 0.4908 | 0.5716 | 0.7368  
 
 

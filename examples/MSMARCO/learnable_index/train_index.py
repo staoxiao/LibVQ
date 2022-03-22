@@ -59,12 +59,12 @@ if __name__ == '__main__':
                                                            train_ground_truths,
                                                            topk=400,
                                                            batch_size=64,
-                                                           nprobe=min(index_args.ivf_centers_num, 1000))
+                                                           nprobe=min(index_args.ivf_centers_num, 500))
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
 
     # contrastive learning
     if training_args.training_mode == 'contrastive_index':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     # distill based on fixed embeddigns of queries and docs
     if training_args.training_mode == 'distill_index':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
@@ -121,13 +121,13 @@ if __name__ == '__main__':
             query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
                                                                               topk=400,
                                                                               batch_size=64,
-                                                                              nprobe=min(index_args.ivf_centers_num, 1000))
+                                                                              nprobe=min(index_args.ivf_centers_num, 500))
 
             write_rel(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'), query2pos)
             pickle.dump(query2neg,
                         open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries-virtual_hardneg.pickle"),
@@ -158,4 +158,5 @@ if __name__ == '__main__':
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
 
-    learnable_index.save_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}.index')
+    learnable_index.save_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
+    learnable_index.load_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')

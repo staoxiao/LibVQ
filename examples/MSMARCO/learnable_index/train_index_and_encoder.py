@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     # contrastive learning
     if training_args.training_mode == 'contrastive_index-and-query-encoder':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     # distill learning and train both query encoder and doc encoder, which only can be used when ivf is disabled
     if training_args.training_mode == 'distill_index-and-two-encoders':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         assert 'ivf' not in index_args.index_method
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
@@ -145,7 +145,7 @@ if __name__ == '__main__':
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0, 'ivf_weight': 0.0},
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 0.0},
                                             loss_method='distill',
-                                            fix_emb=None,
+                                            fix_emb='',
                                             epochs=30)
 
     # distill with no label data
@@ -168,7 +168,7 @@ if __name__ == '__main__':
             pickle.dump(query2neg,
                         open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{training_args.per_device_train_batch_size}/'
+        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries-virtual_hardneg.pickle"),
@@ -209,4 +209,8 @@ if __name__ == '__main__':
     learnable_index.test(new_query_embeddings, ground_truths, topk=1000, batch_size=64,
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
-    learnable_index.save_index(f'{data_args.output_dir}/learnable_index{training_args.training_mode}.index')
+
+    learnable_index.save_index(
+        f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
+    learnable_index.load_index(
+        f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')

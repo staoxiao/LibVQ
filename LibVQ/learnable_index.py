@@ -127,12 +127,14 @@ class LearnableIndex(FaissIndex):
 
         latest_epoch, latest_step = 0, 0
         for ckpt in os.listdir(saved_ckpts_path):
-            name = ckpt.split('_')
-            epoch, step = int(name[1]), int(name[3])
-            if epoch > latest_epoch:
-                latest_epoch, latest_step = epoch, step
-            elif epoch == latest_epoch:
-                latest_step = max(latest_step, step)
+            if 'epoch' in ckpt and 'step' in ckpt:
+                name = ckpt.split('_')
+                epoch, step = int(name[1]), int(name[3])
+                if epoch > latest_epoch:
+                    latest_epoch, latest_step = epoch, step
+                elif epoch == latest_epoch:
+                    latest_step = max(latest_step, step)
+        assert latest_epoch > 0 or latest_step > 0
         return os.path.join(saved_ckpts_path, f"epoch_{latest_epoch}_step_{latest_step}")
 
     def encode(self,
@@ -244,7 +246,7 @@ class LearnableIndex(FaissIndex):
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)
 
-        if 'doc' not in fix_emb:
+        if fix_emb is None or 'doc' not in fix_emb:
             # update doc_embeddings
             logging.info(f"updating doc embeddings and saving it to {checkpoint_path}")
             doc_embeddings = self.encode(data_dir=doc_data_dir,
@@ -353,7 +355,7 @@ class LearnableIndex(FaissIndex):
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)
 
-        if 'doc' not in fix_emb:
+        if fix_emb is None or 'doc' not in fix_emb:
             # update doc_embeddings
             logging.info(f"updating doc embeddings and saving it to {checkpoint_path}")
             doc_embeddings = self.encode(data_dir=doc_data_dir,

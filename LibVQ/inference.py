@@ -71,7 +71,7 @@ def inference_dataset(encoder: Encoder,
             np.save(output_file, np.array(vecs))
         open(output_file + '_finished.flag', 'w')
 
-    if return_vecs: return vecs
+    if return_vecs: return np.array(vecs)
 
 
 def inference(data_dir: str,

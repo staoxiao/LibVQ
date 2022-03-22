@@ -64,6 +64,18 @@ python ./learnable_index/train_index.py  \
 --nprobe 100 \
 --training_mode {distill_index, distill_index_nolabel, contrastive_index} \
 --per_device_train_batch_size 512
+
+
+python ./learnable_index/train_index.py  \
+--preprocess_dir ./data/passage/preprocess \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
+--index_method ivf_opq \
+--ivf_centers_num 10000 \
+--subvector_num 32 \
+--subvector_bits 8 \
+--nprobe 100 \
+--training_mode distill_index_nolabel \
+--per_device_train_batch_size 512
 ```
 
 **Jointly train index and query encoder (always has a better performance):**  
@@ -103,6 +115,7 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 [Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
 [LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
 [LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
+[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
 [LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
 [LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
 [LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
@@ -136,6 +149,19 @@ python ./learnable_index/train_index_and_encoder.py  \
 --subvector_num 32 \
 --subvector_bits 8 \
 --training_mode distill_index-and-two-encoders \
+--per_device_train_batch_size 128
+
+python ./learnable_index/train_index_and_encoder.py  \
+--data_dir ./data/passage/dataset \
+--preprocess_dir ./data/passage/preprocess \
+--pretrained_model_name Luyu/co-condenser-marco-retriever \
+--max_doc_length 256 \
+--max_query_length 32 \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
+--index_method opq \
+--subvector_num 32 \
+--subvector_bits 8 \
+--training_mode distill_index \
 --per_device_train_batch_size 128
 ```
 
