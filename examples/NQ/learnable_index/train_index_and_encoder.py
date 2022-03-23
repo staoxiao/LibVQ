@@ -24,16 +24,16 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    # doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
-    # query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
-    # config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-    # emb_size = config.hidden_size
-    #
-    # text_encoder = Encoder(query_encoder=query_encoder,
-    #                        doc_encoder=doc_encoder)
-    from prepare_data.get_embeddings import get_ARG_encoder
-    text_encoder = get_ARG_encoder()
-    emb_size = 768
+    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    emb_size = config.hidden_size
+
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
+    # from prepare_data.get_embeddings import get_ARG_encoder
+    # text_encoder = get_ARG_encoder()
+    # emb_size = 768
 
 
     # Load embeddings of queries and docs

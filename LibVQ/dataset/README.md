@@ -3,7 +3,7 @@
 from LibVQ.dataset import DatasetForVQ
 ```
 params:
-- **rel_data**: positive doc ids for each query: {query_id:[doc1_id, doc2_id,...]}, or a pickle file.
+- **rel_data**: positive doc ids for each query: {query_id:[doc1_id, doc2_id,...]}, or a tsv file.
 - **query_data_dir**: path to the preprocessed tokens data (needed for jointly training query encoder).
 - **max_query_length**: max length of query tokens sequence.
 - **doc_data_dir**: path to the preprocessed tokens data (needed for jointly training doc encoder).
@@ -28,7 +28,7 @@ If there is no relevance lable, you can create a flat index and generate the rel
 searching the nearest docs:
 ```python
 from LibVQ.baseindex import FaissIndex
-index=FaissIndex(doc_embeddings=doc_embeddings, index_method='flat')
+index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat')
 query2pos, query2neg = index.generate_virtual_traindata(query_embeddings)
 ```
 

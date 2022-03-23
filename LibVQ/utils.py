@@ -5,7 +5,6 @@ import sys
 import numpy as np
 import torch
 import torch.distributed as dist
-from transformers import AdamW, get_linear_schedule_with_warmup
 
 
 def is_main_process(local_rank):
@@ -47,38 +46,3 @@ def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
         all_tensors[local_rank] = vecs
     all_tensors = torch.cat(all_tensors, dim=0)
     return all_tensors
-
-
-def create_optimizer_and_scheduler(args, model, num_training_steps: int):
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    if args.optimizer_str == "adamw":
-        optimizer = AdamW(
-            optimizer_grouped_parameters,
-            lr=args.learning_rate,
-            betas=(args.adam_beta1, args.adam_beta2),
-            eps=args.adam_epsilon,
-        )
-    elif args.optimizer_str == "lamb":
-        optimizer = Lamb(
-            optimizer_grouped_parameters,
-            lr=args.learning_rate,
-            eps=args.adam_epsilon
-        )
-    else:
-        raise NotImplementedError("Optimizer must be adamw or lamb")
-
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=num_training_steps
-    )
-
-    return optimizer, scheduler
