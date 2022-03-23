@@ -9,11 +9,12 @@ The data will be saved into `./data/NQ/dataset`.
 
 
 ## Preprocess and Generate Embeddings 
-We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder:
+We use the [DPR](https://github.com/facebookresearch/DPR) as the text encoder:
 ```
 python ./prepare_data/get_embeddings.py  \
 --data_dir ./data/NQ/dataset \
 --preprocess_dir ./data/NQ/preprocess \
+--tokenizer_name bert-base-uncased \
 --max_doc_length 256 \
 --max_query_length 32 \
 --output_dir ./data/NQ/evaluate/dpr 
@@ -86,7 +87,7 @@ We provide several different training modes:
 first to find the top-k docs for each train queries by brute-force search (or a index with high performance), 
 then use these results to form a new train data.    
 
-More details of implementation please refer to [train_index.py](train_index.py) and [train_index_and_encoder](train_index_and_encoder.py).
+More details of implementation please refer to [train_index.py](./learnable_index/train_index.py) and [train_index_and_encoder](./learnable_index/train_index_and_encoder.py).
 
 
 + ### Results
@@ -97,7 +98,7 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [Faiss-IVFOPQ](./examples/NQ/basic_index/faiss_index.py) | 0.3332 | 0.4279 | 0.5110 | 0.6817 |  
 [Scann](./examples/NQ/basic_index/scann_index.py) | 0.2526 | 0.3351 | 0.4144 | 0.6016 |
 [LibVQ(contrastive_index)](./examples/NQ/learnable_index/train_index.py) | 0.3398 | 0.4415 | 0.5232 | 0.6911 
-[LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3952** | 0.4900 | 0.5667 | 0.7232
+[LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3952 | 0.4900 | 0.5667 | 0.7232
 [LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | **0.4066** | **0.4936** | **0.5759** | **0.7301**
 [LibVQ(contrastive_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3548 | 0.4470 | 0.5390 | 0.7120 
 [LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3759 | 0.4698 | 0.5515 | 0.7121 
@@ -150,6 +151,6 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | 0.3880 | 0.4858 | 0.5819 | 0.7423    
 [LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
 [LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.4426** | **0.5376** | **0.6191** | **0.7709**  
-[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3889 | 0.4908 | 0.5716 | 0.7368  
+[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4265 | 0.5210 | 0.6038 | 0.7540  
 
 

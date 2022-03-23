@@ -24,27 +24,28 @@ class LearnableIndex(FaissIndex):
     def __init__(self,
                  index_method: str,
                  encoder: Encoder = None,
-                 config: IndexConfig = None,
                  init_index_file: str = None,
                  emb_size: int = 768,
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
                  subvector_bits: int = 8,
                  dist_mode: str = 'ip',
-                 doc_embeddings: np.ndarray = None
+                 doc_embeddings: np.ndarray = None,
+                 config: IndexConfig = None
                  ):
         """
         finetune the index and encoder
-        :param index_method: the type of index, e.g., ivf_pq, pq, opq
-        :param encoder: the encoder for query and doc
-        :param config: config of index
-        :param init_index_file: the faiss index file, if is None, it will create a faiss index and save it
-        :param emb_size: dim of embeddings
-        :param ivf_centers_num: the number of post lists
-        :param subvector_num: the number of codebooks
-        :param subvector_bits: the number of codewords for each codebook
-        :param dist_mode: metric to calculate the distance between query and doc
-        :param doc_embeddings: embeddings of docs, needed when there is no a trained index in init_index_file
+
+        :param index_method: The type of index, e.g., ivf_pq, ivf_opq, pq, opq
+        :param encoder: The encoder for query and doc
+        :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it
+        :param emb_size: Dim of embeddings
+        :param ivf_centers_num: The number of post lists
+        :param subvector_num: The number of codebooks
+        :param subvector_bits: The number of codewords for each codebook
+        :param dist_mode: Metric to calculate the distance between query and doc
+        :param doc_embeddings: Embeddings of docs, needed when there is no a trained index in init_index_file
+        :param config: Config of index. Default is None.
         """
         super(LearnableIndex).__init__()
 
@@ -68,8 +69,34 @@ class LearnableIndex(FaissIndex):
             self.index = faiss.read_index(init_index_file)
 
         self.learnable_vq = LearnableVQ(config, encoder=encoder, index_file=init_index_file, index_method=index_method)
+        self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file)
 
-    def update_encoder(self, encoder_file=None, saved_ckpts_path=None):
+
+    def check_index_parameters(self,
+                               vq_model: LearnableVQ,
+                               ivf_centers_num: int,
+                               subvector_num: int,
+                               subvector_bits: int,
+                               init_index_file: str):
+        if ivf_centers_num is not None:
+            if vq_model.ivf.ivf_centers_num != ivf_centers_num:
+                raise ValueError(f"The ivf_centers_num :{vq_model.ivf.ivf_centers_num} of index from {init_index_file} is not equal to you set: {ivf_centers_num}. "
+                              f"please use the correct saved index or set it None to create a new faiss index")
+        if subvector_num is not None:
+            if vq_model.pq.subvector_num != subvector_num:
+                raise ValueError(
+                    f"The subvector_num :{vq_model.pq.subvector_num} of index from {init_index_file} is not equal to you set: {subvector_num}. "
+                    f"please use the correct saved index or set it None to create a new faiss index")
+        if subvector_bits is not None:
+            if vq_model.pq.subvector_bits != subvector_bits:
+                raise ValueError(
+                    f"The subvector_bits :{vq_model.pq.subvector_bits} of index from {init_index_file} is not equal to you set: {subvector_bits}. "
+                    f"please use the correct saved index or set it None to create a new faiss index")
+
+
+    def update_encoder(self,
+                       encoder_file: str = None,
+                       saved_ckpts_path: str = None):
         if encoder_file is None:
             assert saved_ckpts_path is not None
             ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
@@ -77,7 +104,8 @@ class LearnableIndex(FaissIndex):
 
         self.learnable_vq.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
 
-    def update_ivf(self, center_vecs):
+    def update_ivf(self,
+                   center_vecs: numpy.ndarray):
         if isinstance(self.index, faiss.IndexPreTransform):
             ivf_index = faiss.downcast_index(self.index.index)
             coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
@@ -88,7 +116,9 @@ class LearnableIndex(FaissIndex):
             center_vecs.ravel(),
             coarse_quantizer.xb)
 
-    def update_pq(self, codebook, doc_embeddings):
+    def update_pq(self,
+                  codebook: numpy.ndarray,
+                  doc_embeddings: numpy.ndarray):
         if isinstance(self.index, faiss.IndexPreTransform):
             ivf_index = faiss.downcast_index(self.index.index)
             faiss.copy_array_to_vector(
@@ -103,7 +133,10 @@ class LearnableIndex(FaissIndex):
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
         self.index.add(doc_embeddings)
 
-    def update_index_with_ckpt(self, ckpt_path=None, saved_ckpts_path=None, doc_embeddings=None):
+    def update_index_with_ckpt(self,
+                               ckpt_path: str = None,
+                               saved_ckpts_path: str = None,
+                               doc_embeddings: numpy.ndarray = None):
         if ckpt_path is None:
             assert saved_ckpts_path is not None
             ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
@@ -122,7 +155,7 @@ class LearnableIndex(FaissIndex):
             codebook = np.load(codebook_file)
             self.update_pq(codebook=codebook, doc_embeddings=doc_embeddings)
 
-    def get_latest_ckpt(self, saved_ckpts_path):
+    def get_latest_ckpt(self, saved_ckpts_path: str):
         if len(os.listdir(saved_ckpts_path)) == 0: raise IOError(f"There is no ckpt in path: {saved_ckpts_path}")
 
         latest_epoch, latest_step = 0, 0
@@ -160,7 +193,9 @@ class LearnableIndex(FaissIndex):
         time_str = time.strftime('%m_%d-%H-%M-%S', time.localtime(time.time()))
         return f'./temp/{time_str}'
 
-    def load_embedding(self, emb, emb_size):
+    def load_embedding(self,
+                       emb: Union[str, numpy.ndarray],
+                       emb_size: int):
         if isinstance(emb, str):
             assert 'npy' in emb or 'memmap' in emb
             if 'memmap' in emb:
@@ -200,6 +235,36 @@ class LearnableIndex(FaissIndex):
             checkpoint_save_steps: int = None,
             logging_steps: int = 100,
             ):
+        """
+        Train the VQ model and update the index
+
+        :param dataset: DatasetForVQ object.
+        :param rel_data: rel_data: Positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
+        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training query encoder).
+        :param max_query_length: Max length of query tokens sequence.
+        :param doc_data_dir: Path to the preprocessed tokens data (needed for jointly training doc encoder).
+        :param max_doc_length: Max length of doc tokens sequence.
+        :param epochs: The epochs of training
+        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each query
+        :param neg_data: Negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg. if set None, it will randomly sample negative.
+        :param query_embeddings: Embeddings for each query, also support pass a file('.npy', '.memmap').
+        :param doc_embeddings: Embeddigns for each doc, also support pass a filename('.npy', '.memmap').
+        :param emb_size: Dim of embeddings.
+        :param warmup_steps_ratio: The ration of warmup steps
+        :param optimizer_class: torch.optim.Optimizer
+        :param lr_params: Learning rate for encoder, ivf, and pq
+        :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
+        :param temperature: Temperature for softmax
+        :param loss_method: We provide two loss: 'contrastive' and 'distill'
+        :param fix_emb: Fix the embeddings of query or doc
+        :param weight_decay: Hyper-parameter for Optimizer
+        :param max_grad_norm: Used for gradient normalization
+        :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
+        :param checkpoint_save_steps: Will save a checkpoint after so many steps
+        :param logging_steps: Will show the loss information after so many steps
+        :return:
+        """
         if checkpoint_save_steps is None:
             checkpoint_path = self.get_temp_checkpoint_save_path()
             logging.info(f"The model will be saved into {checkpoint_path}")
@@ -293,7 +358,36 @@ class LearnableIndex(FaissIndex):
             logging_steps: int = 100,
             master_port: str = '12345'
     ):
+        """
+        Train the VQ model with multi GPUs and update the index
 
+        :param rel_file: A tsv file which save the relevance relationship: qeury_id \t doc_id \n.
+        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training query encoder).
+        :param max_query_length: Max length of query tokens sequence.
+        :param doc_data_dir: Path to the preprocessed tokens data (needed for jointly training doc encoder).
+        :param max_doc_length: Max length of doc tokens sequence.
+        :param epochs: The epochs of training
+        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each query
+        :param neg_file: A pickle file which save the query2neg. if set None, it will randomly sample negative.
+        :param query_embeddings_file: Filename('.npy', '.memmap') to query embeddings.
+        :param doc_embeddings_file: Filename('.npy', '.memmap') to doc embeddings.
+        :param emb_size: Dim of embeddings.
+        :param warmup_steps_ratio: The ration of warmup steps
+        :param optimizer_class: torch.optim.Optimizer
+        :param lr_params: Learning rate for encoder, ivf, and pq
+        :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
+        :param temperature: Temperature for softmax
+        :param loss_method: We provide two loss: 'contrastive' and 'distill'
+        :param fix_emb: Fix the embeddings of query or doc
+        :param weight_decay: Hyper-parameter for Optimizer
+        :param max_grad_norm: Used for gradient normalization
+        :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
+        :param checkpoint_save_steps: Will save a checkpoint after so many steps
+        :param logging_steps: Will show the loss information after so many steps
+        :param master_port: setting for distributed training
+        :return:
+        """
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = master_port
         world_size = torch.cuda.device_count()

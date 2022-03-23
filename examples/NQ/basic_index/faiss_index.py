@@ -36,11 +36,11 @@ if __name__ == '__main__':
 
     print('Training the index with doc embeddings')
     # index.CPU_to_GPU(0)
-    index.fit(doc_embeddings)
-    index.add(doc_embeddings)
-    # index.GPU_to_CPU()
-    index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
-    # index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+    # index.fit(doc_embeddings)
+    # index.add(doc_embeddings)
+    # # index.GPU_to_CPU()
+    # index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+    index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
 
     # Test the performance
     scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)

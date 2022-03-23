@@ -39,14 +39,14 @@ if __name__ == '__main__':
     if not os.path.exists(data_args.preprocess_dir):
         preprocess_data(data_dir=data_args.data_dir,
                         output_dir=data_args.preprocess_dir,
-                        tokenizer_name=model_args.pretrained_model_name,
+                        tokenizer_name=data_args.tokenizer_name,
                         max_doc_length=data_args.max_doc_length,
                         max_query_length=data_args.max_query_length,
                         workers_num=64)
 
     # Load encoder
-    query_encoder = MS_Encoder(model_args.pretrained_model_name)
-    doc_encoder = MS_Encoder(model_args.pretrained_model_name)
+    query_encoder = MS_Encoder(pretrained_model_name='Luyu/co-condenser-marco-retriever')
+    doc_encoder = MS_Encoder(pretrained_model_name='Luyu/co-condenser-marco-retriever')
     emb_size = doc_encoder.output_embedding_size
 
     text_encoder = Encoder(query_encoder=query_encoder,

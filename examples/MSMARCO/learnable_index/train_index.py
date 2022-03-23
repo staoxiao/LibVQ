@@ -42,15 +42,15 @@ if __name__ == '__main__':
     # Create Index
     # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
     # if no, it will creat and save a faiss index in init_index_file
+    init_index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     learnable_index = LearnableIndex(index_method=index_args.index_method,
-                                     init_index_file=os.path.join(data_args.embeddings_dir,
-                                                                  f'{index_args.index_method}.index'),
+                                     init_index_file=init_index_file,
                                      doc_embeddings=doc_embeddings,
                                      ivf_centers_num=index_args.ivf_centers_num,
                                      subvector_num=index_args.subvector_num,
                                      subvector_bits=index_args.subvector_bits)
 
-    # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
+    # The dataloader randomly samples the negative from corpus by default. You also can assgin speficed negative for each query by setting neg_file
     neg_file = os.path.join(data_args.embeddings_dir, f"train-queries_hardneg.pickle")
     if not os.path.exists(neg_file):
         print('generating hard negatives for train queries ...')
@@ -71,6 +71,7 @@ if __name__ == '__main__':
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
+                                            per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
                                             per_device_train_batch_size=training_args.per_device_train_batch_size,
@@ -158,5 +159,7 @@ if __name__ == '__main__':
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
 
-    learnable_index.save_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
-    learnable_index.load_index(f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
+    data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    saved_index_file = os.path.join(data_args.output_dir, f'LibVQ_{training_args.training_mode}_{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    learnable_index.save_index(saved_index_file)
+    learnable_index.load_index(saved_index_file)

@@ -24,13 +24,17 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
-    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
-    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-    emb_size = config.hidden_size
+    # doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    # query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    # config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    # emb_size = config.hidden_size
+    #
+    # text_encoder = Encoder(query_encoder=query_encoder,
+    #                        doc_encoder=doc_encoder)
+    from prepare_data.get_embeddings import get_ARG_encoder
+    text_encoder = get_ARG_encoder()
+    emb_size = 768
 
-    text_encoder = Encoder(query_encoder=query_encoder,
-                           doc_encoder=doc_encoder)
 
     # Load embeddings of queries and docs
     doc_embeddings_file = os.path.join(data_args.embeddings_dir, 'docs.memmap')
@@ -109,20 +113,20 @@ if __name__ == '__main__':
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
-                                            per_query_neg_num=100,
+                                            per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=64,
+                                            per_device_train_batch_size=160,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
                                             optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                                         'ivf_weight': 'scaled_to_pqloss'},
+                                                         'ivf_weight': 0.56},
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='doc',
-                                            epochs=10)
+                                            epochs=9)
 
     # distill learning and train both query encoder and doc encoder, which only can be used when ivf is disabled
     if training_args.training_mode == 'distill_index-and-two-encoders':

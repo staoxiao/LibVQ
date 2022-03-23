@@ -23,8 +23,8 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    query_encoder = MS_Encoder(model_args.pretrained_model_name)
-    doc_encoder = MS_Encoder(model_args.pretrained_model_name)
+    query_encoder = MS_Encoder(pretrained_model_name='Luyu/co-condenser-marco-retriever')
+    doc_encoder = MS_Encoder(pretrained_model_name='Luyu/co-condenser-marco-retriever')
     emb_size = doc_encoder.output_embedding_size
 
     text_encoder = Encoder(query_encoder=query_encoder,
@@ -51,16 +51,16 @@ if __name__ == '__main__':
     # Create Index
     # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
     # if no, it will creat and save a faiss index in init_index_file
+    init_index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     learnable_index = LearnableIndex(index_method=index_args.index_method,
                                      encoder=text_encoder,
-                                     init_index_file=os.path.join(data_args.embeddings_dir,
-                                                                  f'{index_args.index_method}.index'),
+                                     init_index_file=init_index_file,
                                      doc_embeddings=doc_embeddings,
                                      ivf_centers_num=index_args.ivf_centers_num,
                                      subvector_num=index_args.subvector_num,
                                      subvector_bits=index_args.subvector_bits)
 
-    # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
+    # The dataloader randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
     neg_file = os.path.join(data_args.embeddings_dir, f"train-queries_hardneg.pickle")
     if not os.path.exists(neg_file):
         print('generating hard negatives for train queries ...')
@@ -99,13 +99,35 @@ if __name__ == '__main__':
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
         data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
-        learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-                                            neg_file=os.path.join(data_args.embeddings_dir,
+        # learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+        #                                     neg_file=os.path.join(data_args.embeddings_dir,
+        #                                                           f"train-queries_hardneg.pickle"),
+        #                                     query_data_dir=data_args.preprocess_dir,
+        #                                     max_query_length=data_args.max_query_length,
+        #                                     query_embeddings_file=query_embeddings_file,
+        #                                     doc_embeddings_file=doc_embeddings_file,
+        #                                     emb_size=emb_size,
+        #                                     checkpoint_path=data_args.save_ckpt_dir,
+        #                                     logging_steps=training_args.logging_steps,
+        #                                     per_device_train_batch_size=training_args.per_device_train_batch_size,
+        #                                     checkpoint_save_steps=training_args.checkpoint_save_steps,
+        #                                     max_grad_norm=training_args.max_grad_norm,
+        #                                     temperature=training_args.temperature,
+        #                                     optimizer_class=AdamW,
+        #                                     loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
+        #                                                  'ivf_weight': 'scaled_to_pqloss'},
+        #                                     lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+        #                                     loss_method='distill',
+        #                                     fix_emb='doc',
+        #                                     epochs=30)
+
+        learnable_index.fit(rel_data=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+                                            neg_data=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
                                             query_data_dir=data_args.preprocess_dir,
                                             max_query_length=data_args.max_query_length,
-                                            query_embeddings_file=query_embeddings_file,
-                                            doc_embeddings_file=doc_embeddings_file,
+                                            query_embeddings=query_embeddings_file,
+                                            doc_embeddings=doc_embeddings_file,
                                             emb_size=emb_size,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
@@ -210,7 +232,7 @@ if __name__ == '__main__':
                          MRR_cutoffs=[10, 100], Recall_cutoffs=[10, 30, 50, 100],
                          nprobe=index_args.nprobe)
 
-    learnable_index.save_index(
-        f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
-    learnable_index.load_index(
-        f'{data_args.embeddings_dir}/learnable_index_{training_args.training_mode}_{index_args.index_method}.index')
+    saved_index_file = os.path.join(data_args.output_dir,
+                                    f'LibVQ_{training_args.training_mode}_{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    learnable_index.save_index(saved_index_file)
+    learnable_index.load_index(saved_index_file)

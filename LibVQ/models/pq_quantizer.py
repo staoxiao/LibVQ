@@ -1,6 +1,7 @@
 import os
 
 import faiss
+import math
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -11,8 +12,6 @@ class Quantization(nn.Module):
     def __init__(self, emb_size=768, subvector_num=96, subvector_bits=8, rotate=None, codebook=None):
         super(Quantization, self).__init__()
 
-        self.subvector_num = subvector_num
-
         if codebook is not None:
             self.codebook = nn.Parameter(torch.FloatTensor(codebook), requires_grad=True)
         else:
@@ -20,6 +19,8 @@ class Quantization(nn.Module):
                 torch.empty(subvector_num, 2 ** subvector_bits,
                             emb_size // subvector_num).uniform_(-0.1, 0.1)).type(
                 torch.FloatTensor)
+        self.subvector_num = self.codebook.size(0)
+        self.subvector_bits = int(math.log2(self.codebook.size(1)))
 
         if rotate is not None:
             self.rotate = nn.Parameter(torch.FloatTensor(rotate), requires_grad=False)

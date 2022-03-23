@@ -15,7 +15,7 @@ We use the [co-codenser](https://github.com/luyug/Condenser) as the text encoder
 python ./prepare_data/get_embeddings.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
+--tokenizer_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
 --output_dir ./data/passage/evaluate/co-condenser 
@@ -64,18 +64,6 @@ python ./learnable_index/train_index.py  \
 --nprobe 100 \
 --training_mode {distill_index, distill_index_nolabel, contrastive_index} \
 --per_device_train_batch_size 512
-
-
-python ./learnable_index/train_index.py  \
---preprocess_dir ./data/passage/preprocess \
---embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 32 \
---subvector_bits 8 \
---nprobe 100 \
---training_mode distill_index_nolabel \
---per_device_train_batch_size 512
 ```
 
 **Jointly train index and query encoder (always has a better performance):**  
@@ -84,7 +72,6 @@ python ./learnable_index/train_index.py  \
 python ./learnable_index/train_index_and_encoder.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
 --embeddings_dir ./data/passage/evaluate/co-condenser \
@@ -103,7 +90,7 @@ We provide several different training modes:
 first to find the top-k docs for each train queries by brute-force search (or a index with high performance), 
 then use these results to form a new train data.    
 
-More details of implementation please refer to [train_index.py](train_index.py) and [train_index_and_encoder](train_index_and_encoder.py).
+More details of implementation please refer to [train_index.py](./learnable_index/train_index.py) and [train_index_and_encoder](./learnable_index/train_index_and_encoder.py).
 
 
 + ### Results
@@ -115,7 +102,7 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 [Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
 [LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
 [LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
-[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
+[LibVQ(distill_index_nolabel)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3234 | 0.5813 | 0.8269 | 
 [LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
 [LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
 [LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
@@ -128,33 +115,9 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 For PQ, you can reuse above commands and only change the `--index_method` to `pq` or `opq`.
 For example:
 ```
-python ./basic_index/faiss_index.py  \
---preprocess_dir ./data/passage/preprocess \
---embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method pq \
---subvector_num 32 \
---subvector_bits 8 
-```
-
-Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_jointly_v2`).
-```
-python ./learnable_index/train_index_and_encoder.py  \
+python ./learnable_index/train_index.py  \
 --data_dir ./data/passage/dataset \
 --preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
---max_doc_length 256 \
---max_query_length 32 \
---embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method opq \
---subvector_num 32 \
---subvector_bits 8 \
---training_mode distill_index-and-two-encoders \
---per_device_train_batch_size 128
-
-python ./learnable_index/train_index_and_encoder.py  \
---data_dir ./data/passage/dataset \
---preprocess_dir ./data/passage/preprocess \
---pretrained_model_name Luyu/co-condenser-marco-retriever \
 --max_doc_length 256 \
 --max_query_length 32 \
 --embeddings_dir ./data/passage/evaluate/co-condenser \
@@ -165,13 +128,31 @@ python ./learnable_index/train_index_and_encoder.py  \
 --per_device_train_batch_size 128
 ```
 
+Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_jointly_v2`).
+```
+python ./learnable_index/train_index_and_encoder.py  \
+--data_dir ./data/passage/dataset \
+--preprocess_dir ./data/passage/preprocess \
+--max_doc_length 256 \
+--max_query_length 32 \
+--embeddings_dir ./data/passage/evaluate/co-condenser \
+--index_method opq \
+--subvector_num 32 \
+--subvector_bits 8 \
+--training_mode distill_index-and-two-encoders \
+--per_device_train_batch_size 128
+```
+
 + ### Results
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
 [Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
-[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
+[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |   
+[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1795 | 0.3516 | 0.6409 |  
+[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3435 | 0.6203 | 0.8825 | 
+[LibVQ(distill_index_nolabel)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3467 | 0.6180 | 0.8849 | 
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3446 | 0.6201 | 0.8837 | 
 [LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
 
 

@@ -25,7 +25,7 @@ class DatasetForVQ(Dataset):
                  doc_embeddings: Union[str, numpy.ndarray] = None,
                  emb_size: int = None):
         """
-        :param rel_data: positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2pos.
+        :param rel_data: positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
         :param query_data_dir: path to the preprocessed tokens data (needed for jointly training query encoder).
         :param max_query_length: max length of query tokens sequence.
         :param doc_data_dir: path to the preprocessed tokens data (needed for jointly training doc encoder).

@@ -37,17 +37,22 @@ Methods | MRR@10 | Recall@10 | Recall@100 |
 [Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1791 | 0.3499 | 0.6345 | 
 [LibVQ(contrastive_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3179 | 0.5724 | 0.8214 | 
 [LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3253 | 0.5765 | 0.8256 | 
+[LibVQ(distill_index_nolabel)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3234 | 0.5813 | 0.8269 | 
 [LibVQ(contrastive_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3192 | 0.5799 | 0.8427 |  
 [LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3311** | **0.5907** | **0.8429** |  
 [LibVQ(distill_index-and-query-encoder_nolabel)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3285 | 0.5875 | 0.8401 | 
+
 
 - PQ (Compression Ratio = 96) 
 
 Methods | MRR@10 | Recall@10 | Recall@100 | 
 ------- | ------- | ------- |  ------- | 
 [Faiss-PQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.1145 | 0.2369 | 0.5046 |  
-[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |    
-[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3437 | 0.6201 | 0.8819 | 
+[Faiss-OPQ](./examples/MSMARCO/basic_index/faiss_index.py) | 0.3268 | 0.5939 | 0.8651 |   
+[Scann](./examples/MSMARCO/basic_index/scann_index.py) | 0.1795 | 0.3516 | 0.6409 |  
+[LibVQ(distill_index)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3435 | 0.6203 | 0.8825 | 
+[LibVQ(distill_index_nolabel)](./examples/MSMARCO/learnable_index/train_index.py) | 0.3467 | 0.6180 | 0.8849 | 
+[LibVQ(distill_index-and-query-encoder)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | 0.3446 | 0.6201 | 0.8837 | 
 [LibVQ(distill_index-and-two-encoders)](./examples/MSMARCO/learnable_index/train_index_and_encoder.py) | **0.3475** | **0.6223** | **0.8901** |  
 
 
@@ -68,7 +73,6 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 
 
 
-
 - PQ  (Compression Ratio = 384) 
 
 Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
@@ -80,5 +84,5 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | 0.3880 | 0.4858 | 0.5819 | 0.7423    
 [LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
 [LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.4426** | **0.5376** | **0.6191** | **0.7709**  
-[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3889 | 0.4908 | 0.5716 | 0.7368  
+[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4265 | 0.5210 | 0.6038 | 0.7540  
 

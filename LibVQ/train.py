@@ -148,6 +148,19 @@ def train_model(
                     else:
                         loss_weight['ivf_weight'] = 0.0
 
+
+                if isinstance(loss_weight['pq_weight'], str):
+                    if loss_weight['pq_weight'] == 'scaled_to_denseloss':
+                        weight = batch_dense_loss / (batch_pq_loss + 1e-6)
+                    else:
+                        raise RuntimeError \
+                            ("loss_weight['pq_weight'] should be in ['scaled_to_denseloss']")
+                    if world_size > 1:
+                        weight = dist_gather_tensor(weight.unsqueeze(0), world_size=world_size)
+                        weight = torch.mean(weight)
+                    loss_weight['pq_weight'] = weight.detach().float().item()
+                    logging.info(f"pq_weight = {loss_weight['pq_weight']}")
+
                 batch_loss = loss_weight['encoder_weight'] * batch_dense_loss + \
                              loss_weight['pq_weight'] * batch_pq_loss + \
                              loss_weight['ivf_weight'] * batch_ivf_loss

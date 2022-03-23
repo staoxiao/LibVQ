@@ -17,6 +17,7 @@ class IndexArguments:
 class DataArguments:
     data_dir: str = field(default='./data/passage/dataset', metadata={"help": "The path to preprocessed data"})
     preprocess_dir: str = field(default='./data/passage/preprocess', metadata={"help": "The path to preprocessed data"})
+    tokenizer_name: str = field(default='bert-base-uncased', metadata={"help": "The type of tokenizer"})
     neg_file: str = field(default=None, metadata={"help": "The path to negative.json"})
     embeddings_dir: str = field(default=None, metadata={
         "help": "The path to embeddings, including embeddings of docs and queries"})
