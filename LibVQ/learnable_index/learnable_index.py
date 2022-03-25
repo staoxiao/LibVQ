@@ -254,7 +254,6 @@ class LearnableIndex(FaissIndex):
                     loss_weight=loss_weight,
                     temperature=temperature,
                     loss_method=loss_method,
-                    fix_emb=fix_emb,
                     weight_decay=weight_decay,
                     max_grad_norm=max_grad_norm,
                     show_progress_bar=show_progress_bar,
