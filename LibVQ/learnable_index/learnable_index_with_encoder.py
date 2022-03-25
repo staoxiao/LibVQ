@@ -10,8 +10,7 @@ import numpy
 import numpy as np
 import torch
 import torch.multiprocessing as mp
-from torch.optim import Optimizer
-from transformers import AdamW
+from torch.optim import AdamW, Optimizer
 
 from LibVQ.base_index import FaissIndex, IndexConfig
 from LibVQ.learnable_index import LearnableIndex

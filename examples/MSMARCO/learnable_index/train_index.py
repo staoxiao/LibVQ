@@ -5,7 +5,8 @@ import pickle
 
 import faiss
 import numpy as np
-from transformers import HfArgumentParser, AdamW
+from transformers import HfArgumentParser
+from torch.optim import AdamW
 
 from LibVQ.base_index import FaissIndex
 from LibVQ.dataset.dataset import load_rel, write_rel

@@ -5,7 +5,8 @@ import pickle
 
 import faiss
 import numpy as np
-from transformers import HfArgumentParser, AdamW
+from transformers import HfArgumentParser
+from torch.optim import AdamW
 
 from LibVQ.dataset.dataset import load_rel, write_rel
 from LibVQ.learnable_index import LearnableIndexWithEncoder
@@ -99,35 +100,13 @@ if __name__ == '__main__':
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
-        # learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-        #                                     neg_file=os.path.join(data_args.embeddings_dir,
-        #                                                           f"train-queries_hardneg.pickle"),
-        #                                     query_data_dir=data_args.preprocess_dir,
-        #                                     max_query_length=data_args.max_query_length,
-        #                                     query_embeddings_file=query_embeddings_file,
-        #                                     doc_embeddings_file=doc_embeddings_file,
-        #                                     emb_size=emb_size,
-        #                                     checkpoint_path=data_args.save_ckpt_dir,
-        #                                     logging_steps=training_args.logging_steps,
-        #                                     per_device_train_batch_size=training_args.per_device_train_batch_size,
-        #                                     checkpoint_save_steps=training_args.checkpoint_save_steps,
-        #                                     max_grad_norm=training_args.max_grad_norm,
-        #                                     temperature=training_args.temperature,
-        #                                     optimizer_class=AdamW,
-        #                                     loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
-        #                                                  'ivf_weight': 'scaled_to_pqloss'},
-        #                                     lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-        #                                     loss_method='distill',
-        #                                     fix_emb='doc',
-        #                                     epochs=30)
-
-        learnable_index.fit(rel_data=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-                                            neg_data=os.path.join(data_args.embeddings_dir,
+        learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+                                            neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
                                             query_data_dir=data_args.preprocess_dir,
                                             max_query_length=data_args.max_query_length,
-                                            query_embeddings=query_embeddings_file,
-                                            doc_embeddings=doc_embeddings_file,
+                                            query_embeddings_file=query_embeddings_file,
+                                            doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
@@ -141,7 +120,29 @@ if __name__ == '__main__':
                                             lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='doc',
-                                            epochs=10)
+                                            epochs=30)
+
+        # learnable_index.fit(rel_data=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+        #                                     neg_data=os.path.join(data_args.embeddings_dir,
+        #                                                           f"train-queries_hardneg.pickle"),
+        #                                     query_data_dir=data_args.preprocess_dir,
+        #                                     max_query_length=data_args.max_query_length,
+        #                                     query_embeddings=query_embeddings_file,
+        #                                     doc_embeddings=doc_embeddings_file,
+        #                                     emb_size=emb_size,
+        #                                     checkpoint_path=data_args.save_ckpt_dir,
+        #                                     logging_steps=training_args.logging_steps,
+        #                                     per_device_train_batch_size=training_args.per_device_train_batch_size,
+        #                                     checkpoint_save_steps=training_args.checkpoint_save_steps,
+        #                                     max_grad_norm=training_args.max_grad_norm,
+        #                                     temperature=training_args.temperature,
+        #                                     optimizer_class=AdamW,
+        #                                     loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
+        #                                                  'ivf_weight': 'scaled_to_pqloss'},
+        #                                     lr_params={'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+        #                                     loss_method='distill',
+        #                                     fix_emb='doc',
+        #                                     epochs=10)
 
     # distill learning and train both query encoder and doc encoder, which only can be used when ivf is disabled
     if training_args.training_mode == 'distill_index-and-two-encoders':
