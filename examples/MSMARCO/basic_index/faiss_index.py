@@ -7,7 +7,7 @@ import numpy as np
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 from transformers import HfArgumentParser
 
-from LibVQ.baseindex import FaissIndex
+from LibVQ.base_index import FaissIndex
 from LibVQ.dataset.dataset import load_rel
 
 faiss.omp_set_num_threads(32)

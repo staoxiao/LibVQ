@@ -8,8 +8,7 @@ from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArg
 from transformers import HfArgumentParser
 from evaluate import validate, load_test_data
 
-from LibVQ.baseindex import FaissIndex
-from LibVQ.dataset.dataset import load_rel
+from LibVQ.base_index import FaissIndex
 
 faiss.omp_set_num_threads(32)
 
@@ -36,11 +35,13 @@ if __name__ == '__main__':
 
     print('Training the index with doc embeddings')
     # index.CPU_to_GPU(0)
-    # index.fit(doc_embeddings)
-    # index.add(doc_embeddings)
+    index.fit(doc_embeddings)
+    index.add(doc_embeddings)
     # # index.GPU_to_CPU()
-    # index.save_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
-    index.load_index(os.path.join(data_args.embeddings_dir, f'{index_args.index_method}.index'))
+
+    index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    index.save_index(index_file)
+    index.load_index(index_file)
 
     # Test the performance
     scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)

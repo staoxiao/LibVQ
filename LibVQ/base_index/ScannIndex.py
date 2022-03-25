@@ -2,7 +2,7 @@ import time
 
 import scann
 
-from LibVQ.baseindex.BaseIndex import BaseIndex
+from LibVQ.base_index.BaseIndex import BaseIndex
 
 
 class ScaNNIndex(BaseIndex):

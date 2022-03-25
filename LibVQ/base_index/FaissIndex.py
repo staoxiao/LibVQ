@@ -5,7 +5,7 @@ import faiss
 import numpy as np
 from tqdm import tqdm
 
-from LibVQ.baseindex.BaseIndex import BaseIndex
+from LibVQ.base_index import BaseIndex
 
 
 class FaissIndex(BaseIndex):

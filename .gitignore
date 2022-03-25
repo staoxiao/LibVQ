@@ -127,7 +127,6 @@ venv.bak/
 dmypy.json
 _hang.py
 try.py
-#./examples/NQ
 
 # Pyre type checker
 .pyre/

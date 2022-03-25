@@ -10,8 +10,6 @@ from tqdm import tqdm
 from LibVQ.dataset.dataset import DatasetForEncoding
 from LibVQ.models import Encoder
 
-logger = logging.Logger(__name__)
-
 
 def inference_dataset(encoder: Encoder,
                       dataset: DatasetForEncoding,

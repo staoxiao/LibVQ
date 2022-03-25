@@ -6,9 +6,9 @@ from torch import nn
 from LibVQ.utils import dist_gather_tensor
 
 
-class IVF_CPU(nn.Module):
+class IVFCPU(nn.Module):
     def __init__(self, center_vecs, id2center):
-        super(IVF_CPU, self).__init__()
+        super(IVFCPU, self).__init__()
         self.center_vecs = center_vecs
         self.id2center = id2center
         self.center_grad = np.zeros_like(center_vecs)

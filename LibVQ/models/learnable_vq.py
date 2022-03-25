@@ -6,8 +6,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 
-from LibVQ.baseindex import IndexConfig
-from LibVQ.models import IVF_CPU
+from LibVQ.base_index import IndexConfig
+from LibVQ.models import IVFCPU
 from LibVQ.models import Quantization
 from LibVQ.utils import dist_gather_tensor
 
@@ -23,11 +23,17 @@ class LearnableVQ(nn.Module):
         self.config = config
         self.encoder = encoder
         if index_file is not None:
-            self.pq = Quantization.from_faiss_index(index_file)
+            if 'ivf' not in index_method and 'pq' not in index_method:
+                raise ValueError(f"The index type:{index_method} is not supported!")
             if 'ivf' in index_method:
-                self.ivf = IVF_CPU.from_faiss_index(index_file)
+                self.ivf = IVFCPU.from_faiss_index(index_file)
             else:
                 self.ivf = None
+
+            if 'pq' in index_method:
+                self.pq = Quantization.from_faiss_index(index_file)
+            else:
+                self.pq = None
         else:
             self.pq = Quantization(emb_size=config.emb_size,
                                    subvector_num=config.subvector_num,
@@ -102,14 +108,20 @@ class LearnableVQ(nn.Module):
 
         if self.ivf is not None:
             dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device, world_size=world_size)
-            residual_doc_vecs = rotate_doc_vecs - dc_emb
-            residual_neg_vecs = rotate_neg_vecs - nc_emb
-            quantized_doc = self.pq.quantization(residual_doc_vecs) + dc_emb
-            quantized_neg = self.pq.quantization(residual_neg_vecs) + nc_emb
         else:
             dc_emb, nc_emb = None, None
-            quantized_doc = self.pq.quantization(rotate_doc_vecs)
-            quantized_neg = self.pq.quantization(rotate_neg_vecs)
+
+        if self.pq is not None:
+            if self.ivf is not None:
+                residual_doc_vecs = rotate_doc_vecs - dc_emb
+                residual_neg_vecs = rotate_neg_vecs - nc_emb
+                quantized_doc = self.pq.quantization(residual_doc_vecs) + dc_emb
+                quantized_neg = self.pq.quantization(residual_neg_vecs) + nc_emb
+            else:
+                quantized_doc = self.pq.quantization(rotate_doc_vecs)
+                quantized_neg = self.pq.quantization(rotate_neg_vecs)
+        else:
+            quantized_doc, quantized_neg = None, None
 
         if world_size > 1 and cross_device_sample:
             origin_q_emb = self.dist_gather_tensor(origin_q_emb)
@@ -124,8 +136,9 @@ class LearnableVQ(nn.Module):
                 dc_emb = self.dist_gather_tensor(dc_emb)
                 nc_emb = self.dist_gather_tensor(nc_emb)
 
-            quantized_doc = self.dist_gather_tensor(quantized_doc)
-            quantized_neg = self.dist_gather_tensor(quantized_neg)
+            if quantized_doc is not None:
+                quantized_doc = self.dist_gather_tensor(quantized_doc)
+                quantized_neg = self.dist_gather_tensor(quantized_neg)
 
         origin_score = self.compute_score(origin_q_emb, origin_d_emb, origin_n_emb, temperature)
         dense_score = self.compute_score(rotate_query_vecs, rotate_doc_vecs, rotate_neg_vecs, temperature)

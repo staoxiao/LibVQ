@@ -15,7 +15,7 @@ from tqdm.autonotebook import trange
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 from LibVQ.dataset import DatasetForVQ, DataCollatorForVQ
-from LibVQ.learnable_vq import LearnableVQ
+from LibVQ.models import LearnableVQ
 from LibVQ.utils import setup_worker, setuplogging, dist_gather_tensor
 
 

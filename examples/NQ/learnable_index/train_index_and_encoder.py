@@ -8,7 +8,7 @@ import numpy as np
 from transformers import HfArgumentParser, AdamW, AutoConfig, DPRContextEncoder, DPRQuestionEncoder
 
 from LibVQ.dataset.dataset import load_rel, write_rel
-from LibVQ.learnable_index import LearnableIndex
+from LibVQ.learnable_index import LearnableIndexWithEncoder
 from LibVQ.models import Encoder
 from LibVQ.utils import setuplogging
 
@@ -24,16 +24,17 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
-    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
-    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-    emb_size = config.hidden_size
+    # doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    # query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    # config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    # emb_size = config.hidden_size
+    #
+    # text_encoder = Encoder(query_encoder=query_encoder,
+    #                        doc_encoder=doc_encoder)
 
-    text_encoder = Encoder(query_encoder=query_encoder,
-                           doc_encoder=doc_encoder)
-    # from prepare_data.get_embeddings import get_ARG_encoder
-    # text_encoder = get_ARG_encoder()
-    # emb_size = 768
+    from prepare_data.get_embeddings import get_ARG_encoder
+    text_encoder = get_ARG_encoder()
+    emb_size = 768
 
 
     # Load embeddings of queries and docs
@@ -56,14 +57,14 @@ if __name__ == '__main__':
     # Create Index
     # if there is a faiss index in init_index_file, it will creat learnable_index based on it;
     # if no, it will creat and save a faiss index in init_index_file
-    learnable_index = LearnableIndex(index_method=index_args.index_method,
-                                     encoder=text_encoder,
-                                     init_index_file=os.path.join(data_args.embeddings_dir,
-                                                                  f'{index_args.index_method}.index'),
-                                     doc_embeddings=doc_embeddings,
-                                     ivf_centers_num=index_args.ivf_centers_num,
-                                     subvector_num=index_args.subvector_num,
-                                     subvector_bits=index_args.subvector_bits)
+    init_index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    learnable_index = LearnableIndexWithEncoder(index_method=index_args.index_method,
+                                               encoder=text_encoder,
+                                               init_index_file=init_index_file,
+                                               doc_embeddings=doc_embeddings,
+                                               ivf_centers_num=index_args.ivf_centers_num,
+                                               subvector_num=index_args.subvector_num,
+                                               subvector_bits=index_args.subvector_bits)
 
     # The class randomly sample the negative from corpus by default. You also can assgin speficed negative for each query (set --neg_file)
     neg_file = os.path.join(data_args.embeddings_dir, f"train-queries_hardneg.pickle")
@@ -77,15 +78,16 @@ if __name__ == '__main__':
                                                            nprobe=index_args.ivf_centers_num)
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
 
+    data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
+
     # contrastive learning
     if training_args.training_mode == 'contrastive_index-and-query-encoder':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
-        learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
-                                            neg_file=os.path.join(data_args.embeddings_dir,
-                                                                  f"train-queries_hardneg.pickle"),
+        learnable_index.fit_with_multi_gpus(doc_embeddings_file=doc_embeddings_file,
                                             query_data_dir=data_args.preprocess_dir,
                                             max_query_length=data_args.max_query_length,
-                                            doc_embeddings_file=doc_embeddings_file,
+                                            rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
+                                            neg_file=os.path.join(data_args.embeddings_dir,
+                                                                  f"train-queries_hardneg.pickle"),
                                             emb_size=emb_size,
                                             per_query_neg_num=1,
                                             checkpoint_path=data_args.save_ckpt_dir,
@@ -104,7 +106,6 @@ if __name__ == '__main__':
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries_hardneg.pickle"),
@@ -113,20 +114,20 @@ if __name__ == '__main__':
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
-                                            per_query_neg_num=1,
+                                            per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=160,
+                                            per_device_train_batch_size=12,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
                                             optimizer_class=AdamW,
                                             loss_weight={'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                                         'ivf_weight': 0.56},
+                                                         'ivf_weight':'scaled_to_pqloss'},
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='doc',
-                                            epochs=9)
+                                            epochs=4)
 
     # distill learning and train both query encoder and doc encoder, which only can be used when ivf is disabled
     if training_args.training_mode == 'distill_index-and-two-encoders':
@@ -156,9 +157,12 @@ if __name__ == '__main__':
                                             fix_emb='',
                                             epochs=20)
 
-    # distill with no label data
-    if training_args.training_mode == 'distill_index-and-query-encoder_nolabel':
 
+    if 'nolabel' in training_args.training_mode:
+        '''
+                If there is not relevance data, you can set the rel_file/rel_data to None, and it will automatically generate the data for training.
+                You also can manually generate the data as following:
+                '''
         # generate train data by brute-force or the index which should has similar performance with brute force
         if not os.path.exists(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv')):
             print('generating relevance labels for train queries ...')
@@ -173,7 +177,9 @@ if __name__ == '__main__':
             pickle.dump(query2neg,
                         open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
+
+    # distill with no label data
+    if training_args.training_mode == 'distill_index-and-query-encoder_nolabel':
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries-virtual_hardneg.pickle"),
@@ -199,21 +205,6 @@ if __name__ == '__main__':
 
 
     if training_args.training_mode == 'distill_index-and-two-encoders_nolabel':
-        # generate train data by brute-force or the index which should has similar performance with brute force
-        if not os.path.exists(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv')):
-            print('generating relevance labels for train queries ...')
-            # flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
-            # query2pos, query2neg = flat_index.generate_virtual_traindata(train_query_embeddings,
-            #                                                                                        topk=400, batch_size=64)
-            # or
-            query2pos, query2neg = trainquery2hardneg = learnable_index.generate_virtual_traindata(
-                train_query_embeddings, topk=400, batch_size=64, nprobe=index_args.ivf_centers_num)
-
-            write_rel(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'), query2pos)
-            pickle.dump(query2neg,
-                        open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
-
-        data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'),
                                             neg_file=os.path.join(data_args.embeddings_dir,
                                                                   f"train-queries-virtual_hardneg.pickle"),
@@ -260,6 +251,14 @@ if __name__ == '__main__':
         collections_file='./data/NQ/dataset/collection.tsv')
     validate(ann_items, test_questions, test_answers, collections)
 
-    learnable_index.save_index(f'{data_args.output_dir}/learnable_index{training_args.training_mode}_{index_args.index_method}.index')
-    learnable_index.load_index(f'{data_args.output_dir}/learnable_index{training_args.training_mode}_{index_args.index_method}.index')
+    saved_index_file = os.path.join(data_args.output_dir,
+                                    f'LibVQ_{training_args.training_mode}_{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    learnable_index.save_index(saved_index_file)
+    learnable_index.load_index(saved_index_file)
 
+    # get the faiss index and then you can use the faiss API.
+    '''
+    index = learnable_index.index 
+    index = faiss.read_index(saved_index_file)
+    index = faiss.index_gpu_to_cpu(index)
+    '''

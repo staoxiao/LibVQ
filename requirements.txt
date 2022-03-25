@@ -1,3 +1,0 @@
-pytorch>=1.7.0
-faiss-gpu==1.6.4.post2
-transformers==4.6.0

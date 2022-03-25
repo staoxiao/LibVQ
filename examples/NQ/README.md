@@ -58,7 +58,7 @@ python ./learnable_index/train_index.py  \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
 --ivf_centers_num 10000 \
---subvector_num 32 \
+--subvector_num 8 \
 --subvector_bits 8 \
 --nprobe 100 \
 --training_mode {distill_index, distill_index_nolabel, contrastive_index} 
@@ -74,11 +74,24 @@ python ./learnable_index/train_index_and_encoder.py  \
 --max_query_length 32 \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 32 \
+--ivf_centers_num 1000 \
+--subvector_num 8 \
 --subvector_bits 8 \
---nprobe 100 \
+--nprobe 10 \
 --training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} 
+
+python ./learnable_index/train_index_and_encoder.py  \
+--data_dir ./data/NQ/dataset \
+--preprocess_dir ./data/NQ/preprocess \
+--max_doc_length 256 \
+--max_query_length 32 \
+--embeddings_dir ./data/NQ/evaluate/dpr \
+--index_method ivf_opq \
+--ivf_centers_num 1000 \
+--subvector_num 8 \
+--subvector_bits 8 \
+--nprobe 10 \
+--training_mode distill_index-and-query-encoder
 ```
 We provide several different training modes:
 1. **contrastive_()**: contrastive learning;

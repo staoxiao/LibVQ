@@ -6,7 +6,7 @@ import numpy as np
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
 from transformers import HfArgumentParser
 
-from LibVQ.baseindex.ScannIndex import ScaNNIndex
+from LibVQ.base_index.ScannIndex import ScaNNIndex
 from LibVQ.dataset.dataset import load_rel
 
 if __name__ == '__main__':

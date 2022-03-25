@@ -7,7 +7,7 @@ from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArg
 from transformers import HfArgumentParser
 from evaluate import validate, load_test_data
 
-from LibVQ.baseindex.ScannIndex import ScaNNIndex
+from LibVQ.base_index.ScannIndex import ScaNNIndex
 from LibVQ.dataset.dataset import load_rel
 
 if __name__ == '__main__':
