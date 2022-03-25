@@ -21,7 +21,7 @@ cd LibVQ
 pip install .
 ```
 
-## Workflow
+## Quickstart
 In LibVQ, users can construct a index and train it by a simple way.
 Please refer to our [docs](./Docs) for more details.
 Besides, we provide some examples below to illustrate the usage of LibVQ.
