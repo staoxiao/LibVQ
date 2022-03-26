@@ -22,41 +22,6 @@ class DPR_Encoder(torch.nn.Module):
         outputs = self.nq_encoder(input_ids, attention_mask)
         return outputs.pooler_output
 
-class ARG_Encoder(torch.nn.Module):
-    def __init__(self, encoder):
-        torch.nn.Module.__init__(self, )
-        self.nq_encoder = encoder
-
-    def forward(self, input_ids, attention_mask):
-        outputs = self.nq_encoder(input_ids, attention_mask)
-        return outputs[0][:, 0]
-
-
-def get_ARG_encoder():
-    from transformers import AutoModel
-    pretrained_model = 'nghuyong/ernie-2.0-en'
-    key_encoder = AutoModel.from_pretrained(
-        pretrained_model_name_or_path=pretrained_model)
-    query_encoder = AutoModel.from_pretrained(
-        pretrained_model_name_or_path=pretrained_model)
-
-    query_encoder = ARG_Encoder(query_encoder)
-    key_encoder = ARG_Encoder(key_encoder)
-    encoder = Encoder(query_encoder, key_encoder)
-
-    ckpt = torch.load('/ads-nfs/t-shxiao/DR_Neg/download/triviaqa/AR2_share/nq_fintinue.pkl')
-    ckpt = ckpt['model_dict']
-    new_ckpt = {}
-    for k, v in ckpt.items():
-        k = k.replace('ctx_model', 'doc_encoder.nq_encoder')
-        k = k.replace('question_model', 'query_encoder.nq_encoder')
-        new_ckpt[k] = v
-
-    print(ckpt.keys())
-    # print(new_ckpt)
-    encoder.load_state_dict(new_ckpt)
-
-    return encoder
 
 if __name__ == '__main__':
     parser = HfArgumentParser((DataArguments, ModelArguments))
@@ -74,16 +39,13 @@ if __name__ == '__main__':
                         workers_num=64)
 
     # Load encoder
-    # doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
-    # query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
-    # config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-    # emb_size = config.hidden_size
-    #
-    # text_encoder = Encoder(query_encoder=query_encoder,
-    #                        doc_encoder=doc_encoder)
+    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    emb_size = config.hidden_size
 
-    text_encoder = get_ARG_encoder()
-    emb_size = 768
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
 
     # Generate embeddings of queries and docs
     inference(data_dir=data_args.preprocess_dir,

@@ -31,7 +31,7 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
---index_method ivf_pq \
+--index_method ivf_opq \
 --ivf_centers_num 1000 \
 --subvector_num 8 \
 --subvector_bits 8 \
@@ -57,10 +57,10 @@ python ./learnable_index/train_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 10000 \
+--ivf_centers_num 1000 \
 --subvector_num 8 \
 --subvector_bits 8 \
---nprobe 100 \
+--nprobe 10 \
 --training_mode {distill_index, distill_index_nolabel, contrastive_index} 
 ```
 
@@ -79,19 +79,6 @@ python ./learnable_index/train_index_and_encoder.py  \
 --subvector_bits 8 \
 --nprobe 10 \
 --training_mode {distill_index-and-query-encoder, distill_index-and-query-encoder_nolabel, contrastive_index-and-query-encoder} 
-
-python ./learnable_index/train_index_and_encoder.py  \
---data_dir ./data/NQ/dataset \
---preprocess_dir ./data/NQ/preprocess \
---max_doc_length 256 \
---max_query_length 32 \
---embeddings_dir ./data/NQ/evaluate/dpr \
---index_method ivf_opq \
---ivf_centers_num 1000 \
---subvector_num 8 \
---subvector_bits 8 \
---nprobe 10 \
---training_mode distill_index-and-query-encoder
 ```
 We provide several different training modes:
 1. **contrastive_()**: contrastive learning;
@@ -150,7 +137,6 @@ python ./learnable_index/train_index_and_encoder.py  \
 --subvector_bits 8 \
 --training_mode distill_index-and-two-encoders
 ```
-
 
 
 + ### Results

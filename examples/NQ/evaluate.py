@@ -11,7 +11,8 @@ logger = logging.getLogger()
 
 
 def check_answer(passages, answers, doc_ids, tokenizer):
-    """Search through all the top docs to see if they have any of the answers."""
+    """This is a script from https://github.com/facebookresearch/DPR.
+    Search through all the top docs to see if they have any of the answers."""
     hits = []
     for i, doc_id in enumerate(doc_ids):
         text = passages[doc_id][0]
@@ -20,7 +21,8 @@ def check_answer(passages, answers, doc_ids, tokenizer):
 
 
 def has_answer(answers, text, tokenizer, match_type='string') -> bool:
-    """Check if a document contains an answer string.
+    """
+    Check if a document contains an answer string.
     If `match_type` is string, token matching is done between the text and answer.
     If `match_type` is regex, we search the whole text with the regex.
     """
@@ -150,26 +152,19 @@ def load_test_data(query_andwer_file, collections_file):
 
 
 def validate(ann_items, questions, answers, collections):
-    # print(ann_items)
     v_dataset = V_dataset(ann_items, questions, answers, collections)
     v_dataloader = DataLoader(v_dataset, batch_size=128, shuffle=False, num_workers=24, collate_fn=DataCollator())
-    # print(len(ann_items), len(questions), len(answers), len(collections))
 
     final_scores = []
     for k, scores in enumerate(tqdm(v_dataloader, total=len(v_dataloader))):
-        # print(scores)
         final_scores.extend(scores)
-    # print(len(final_scores))
 
     n_docs = len(ann_items[0])
     top_k_hits = [0] * n_docs
     for question_hits in final_scores:
-        # print(len(question_hits))
 
         best_hit = next((i for i, x in enumerate(question_hits) if x), None)
-        # print(question_hits, best_hit)
         if best_hit is not None:
-            # print(question_hits, best_hit)
             top_k_hits[best_hit:] = [v + 1 for v in top_k_hits[best_hit:]]
 
     top_k_hits = [v / len(ann_items) for v in top_k_hits]
@@ -182,8 +177,6 @@ class V_dataset(Dataset):
     def __init__(self,
                  ann_items, questions, answers, collections
                  ):
-        # print("ann_items", ann_items)
-        # print("ans", answers)
         self.questions = questions
         self.collections = collections
         self.answers = answers
@@ -197,7 +190,6 @@ class V_dataset(Dataset):
         for i, doc_id in enumerate(doc_ids):
             if doc_id == -1:
                 hits.append(False)
-                title, text = '', ''
             else:
                 title, text = self.collections[doc_id]
                 hits.append(has_answer(self.answers[query_id], text, self.tokenizer))

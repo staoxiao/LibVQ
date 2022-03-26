@@ -25,17 +25,13 @@ if __name__ == '__main__':
     index_args, data_args, model_args, training_args = parser.parse_args_into_dataclasses()
 
     # Load encoder
-    # doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
-    # query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
-    # config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
-    # emb_size = config.hidden_size
-    #
-    # text_encoder = Encoder(query_encoder=query_encoder,
-    #                        doc_encoder=doc_encoder)
+    doc_encoder = DPR_Encoder(DPRContextEncoder.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base"))
+    query_encoder = DPR_Encoder(DPRQuestionEncoder.from_pretrained('facebook/dpr-question_encoder-single-nq-base'))
+    config = AutoConfig.from_pretrained("facebook/dpr-ctx_encoder-single-nq-base")
+    emb_size = config.hidden_size
 
-    from prepare_data.get_embeddings import get_ARG_encoder
-    text_encoder = get_ARG_encoder()
-    emb_size = 768
+    text_encoder = Encoder(query_encoder=query_encoder,
+                           doc_encoder=doc_encoder)
 
 
     # Load embeddings of queries and docs
@@ -107,7 +103,6 @@ if __name__ == '__main__':
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
-        # pass
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=None,
                                             query_data_dir=data_args.preprocess_dir,
@@ -246,12 +241,13 @@ if __name__ == '__main__':
 
 
     # Test
-    scores, ann_items = learnable_index.search(test_query_embeddings, topk=100, nprobe=index_args.nprobe)
+    scores, ann_items = learnable_index.search(new_query_embeddings, topk=100, nprobe=index_args.nprobe)
     test_questions, test_answers, collections = load_test_data(
         query_andwer_file='./data/NQ/raw_dataset/nq-test.qa.csv',
         collections_file='./data/NQ/dataset/collection.tsv')
     validate(ann_items, test_questions, test_answers, collections)
 
+    # Save and Load
     saved_index_file = os.path.join(data_args.output_dir,
                                     f'LibVQ_{training_args.training_mode}_{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     learnable_index.save_index(saved_index_file)
