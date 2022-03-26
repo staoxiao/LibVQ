@@ -356,11 +356,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
                                          )
         else:
             assert 'npy' in doc_embeddings_file or 'memmap' in doc_embeddings_file
-            if 'memmap' in doc_embeddings_file:
-                embeddings = np.memmap(doc_embeddings_file, dtype=np.float32, mode="r")
-                doc_embeddings = embeddings.reshape(-1, emb_size)
-            elif 'npy' in doc_embeddings_file:
-                doc_embeddings = np.load(doc_embeddings_file)
+            doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size)
 
         # update index
         self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,

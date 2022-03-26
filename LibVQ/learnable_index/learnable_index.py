@@ -57,7 +57,7 @@ class LearnableIndex(FaissIndex):
                                     dist_mode=dist_mode)
 
             if init_index_file is None:
-                init_index_file = f'./temp/{index_method}.index'
+                init_index_file = f'./temp/{index_method}_ivf{ivf_centers_num}_pq{subvector_num}x{subvector_bits}.index'
                 os.makedirs('./temp', exist_ok=True)
             logging.info(f"save the init index to {init_index_file}")
             self.index.save_index(init_index_file)
@@ -259,7 +259,8 @@ class LearnableIndex(FaissIndex):
                     show_progress_bar=show_progress_bar,
                     checkpoint_path=checkpoint_path,
                     checkpoint_save_steps=checkpoint_save_steps,
-                    logging_steps=logging_steps
+                    logging_steps=logging_steps,
+                    fix_emb='query, doc'
                     )
 
         # update index
@@ -334,11 +335,11 @@ class LearnableIndex(FaissIndex):
             logging.info(f"The model will be saved into {temp_checkpoint_path}")
             checkpoint_path = temp_checkpoint_path
 
+        doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
         if rel_file is None:
             # generate train data
             logging.info("generating relevance data...")
             query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
-            doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
             rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
                                                                  nprobe=self.learnable_vq.ivf.ivf_centers_num)
 
@@ -371,7 +372,7 @@ class LearnableIndex(FaissIndex):
                        loss_weight,
                        temperature,
                        loss_method,
-                       '',
+                       'query, doc',
                        weight_decay,
                        max_grad_norm,
                        show_progress_bar,
@@ -381,7 +382,6 @@ class LearnableIndex(FaissIndex):
                        ),
                  nprocs=world_size,
                  join=True)
-
 
         # update index
         self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,

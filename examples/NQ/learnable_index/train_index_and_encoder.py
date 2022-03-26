@@ -107,6 +107,7 @@ if __name__ == '__main__':
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
+        # pass
         learnable_index.fit_with_multi_gpus(rel_file=os.path.join(data_args.preprocess_dir, 'train-rels.tsv'),
                                             neg_file=None,
                                             query_data_dir=data_args.preprocess_dir,

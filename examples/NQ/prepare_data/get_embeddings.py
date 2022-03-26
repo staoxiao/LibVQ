@@ -52,6 +52,7 @@ def get_ARG_encoder():
         k = k.replace('question_model', 'query_encoder.nq_encoder')
         new_ckpt[k] = v
 
+    print(ckpt.keys())
     # print(new_ckpt)
     encoder.load_state_dict(new_ckpt)
 

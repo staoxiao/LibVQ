@@ -164,6 +164,7 @@ if __name__ == '__main__':
                          nprobe=index_args.nprobe)
 
     data_args.output_dir = f'./data/passage/evaluate/LearnableIndex_{training_args.training_mode}'
+    os.makedirs(data_args.output_dir, exist_ok=True)
     saved_index_file = os.path.join(data_args.output_dir, f'LibVQ_{training_args.training_mode}_{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     learnable_index.save_index(saved_index_file)
     learnable_index.load_index(saved_index_file)
