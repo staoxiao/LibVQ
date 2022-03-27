@@ -110,10 +110,10 @@ if __name__ == '__main__':
                                             query_embeddings_file=query_embeddings_file,
                                             doc_embeddings_file=doc_embeddings_file,
                                             emb_size=emb_size,
-                                            per_query_neg_num=1,
+                                            per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=160,
+                                            per_device_train_batch_size=64,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
@@ -123,7 +123,7 @@ if __name__ == '__main__':
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='distill',
                                             fix_emb='doc',
-                                            epochs=30)
+                                            epochs=10)
 
     # distill learning and train both query encoder and doc encoder, which only can be used when ivf is disabled
     if training_args.training_mode == 'distill_index-and-two-encoders':

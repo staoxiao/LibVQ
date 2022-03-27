@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('./')
 import os
 
@@ -39,7 +40,8 @@ if __name__ == '__main__':
     index.add(doc_embeddings)
     # # index.GPU_to_CPU()
 
-    index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
+    index_file = os.path.join(data_args.embeddings_dir,
+                              f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     index.save_index(index_file)
     index.load_index(index_file)
 

@@ -1,9 +1,9 @@
 import logging
 import os
 import pickle
+import shutil
 import time
 from typing import List, Dict, Type, Union
-import shutil
 
 import faiss
 import numpy
@@ -66,26 +66,28 @@ class LearnableIndex(FaissIndex):
             self.index = faiss.read_index(init_index_file)
 
         self.learnable_vq = LearnableVQ(config, index_file=init_index_file, index_method=index_method)
-        self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file)
+        self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file,
+                                    index_method)
 
     def check_index_parameters(self,
                                vq_model: LearnableVQ,
                                ivf_centers_num: int,
                                subvector_num: int,
                                subvector_bits: int,
-                               init_index_file: str):
-        if ivf_centers_num is not None:
-            if vq_model.ivf.ivf_centers_num != ivf_centers_num:
+                               init_index_file: str,
+                               index_method: str):
+        if 'ivf' in index_method:
+            if ivf_centers_num is not None and vq_model.ivf.ivf_centers_num != ivf_centers_num:
                 raise ValueError(
                     f"The ivf_centers_num :{vq_model.ivf.ivf_centers_num} of index from {init_index_file} is not equal to you set: {ivf_centers_num}. "
                     f"please use the correct saved index or set it None to create a new faiss index")
-        if subvector_num is not None:
-            if vq_model.pq.subvector_num != subvector_num:
+
+        if 'pq' in index_method:
+            if subvector_num is not None and vq_model.pq.subvector_num != subvector_num:
                 raise ValueError(
                     f"The subvector_num :{vq_model.pq.subvector_num} of index from {init_index_file} is not equal to you set: {subvector_num}. "
                     f"please use the correct saved index or set it None to create a new faiss index")
-        if subvector_bits is not None:
-            if vq_model.pq.subvector_bits != subvector_bits:
+            if subvector_bits is not None and vq_model.pq.subvector_bits != subvector_bits:
                 raise ValueError(
                     f"The subvector_bits :{vq_model.pq.subvector_bits} of index from {init_index_file} is not equal to you set: {subvector_bits}. "
                     f"please use the correct saved index or set it None to create a new faiss index")
@@ -155,7 +157,6 @@ class LearnableIndex(FaissIndex):
                     latest_step = max(latest_step, step)
         assert latest_epoch > 0 or latest_step > 0
         return os.path.join(saved_ckpts_path, f"epoch_{latest_epoch}_step_{latest_step}")
-
 
     def get_temp_checkpoint_save_path(self):
         time_str = time.strftime('%m_%d-%H-%M-%S', time.localtime(time.time()))
@@ -270,7 +271,6 @@ class LearnableIndex(FaissIndex):
         # delete temp folder
         if temp_checkpoint_path is not None:
             shutil.rmtree(temp_checkpoint_path)
-
 
     def fit_with_multi_gpus(
             self,

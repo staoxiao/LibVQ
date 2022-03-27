@@ -148,7 +148,6 @@ def train_model(
                     else:
                         loss_weight['ivf_weight'] = 0.0
 
-
                 if isinstance(loss_weight['pq_weight'], str):
                     if loss_weight['pq_weight'] == 'scaled_to_denseloss':
                         weight = batch_dense_loss / (batch_pq_loss + 1e-6)

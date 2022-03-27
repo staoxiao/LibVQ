@@ -1,22 +1,20 @@
 import logging
 import os
 import pickle
-import time
-from typing import List, Dict, Type, Union
 import shutil
+from typing import List, Dict, Type, Union
 
-import faiss
 import numpy
 import numpy as np
 import torch
 import torch.multiprocessing as mp
 from torch.optim import AdamW, Optimizer
 
-from LibVQ.base_index import FaissIndex, IndexConfig
-from LibVQ.learnable_index import LearnableIndex
+from LibVQ.base_index import IndexConfig
 from LibVQ.dataset import write_rel
 from LibVQ.inference import inference
-from LibVQ.models import Encoder, LearnableVQ
+from LibVQ.learnable_index import LearnableIndex
+from LibVQ.models import Encoder
 from LibVQ.train import train_model
 
 
@@ -68,7 +66,6 @@ class LearnableIndexWithEncoder(LearnableIndex):
 
         self.learnable_vq.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
 
-
     def encode(self,
                data_dir: str,
                prefix: str,
@@ -87,7 +84,6 @@ class LearnableIndexWithEncoder(LearnableIndex):
                          batch_size=batch_size,
                          return_vecs=return_vecs)
         return vecs
-
 
     def fit(self,
             query_embeddings: Union[str, numpy.ndarray] = None,
@@ -215,7 +211,6 @@ class LearnableIndexWithEncoder(LearnableIndex):
         # delete temp folder
         if temp_checkpoint_path is not None:
             shutil.rmtree(temp_checkpoint_path)
-
 
     def fit_with_multi_gpus(
             self,

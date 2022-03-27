@@ -32,11 +32,14 @@ python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 1000 \
---subvector_num 8 \
+--ivf_centers_num 10000 \
+--subvector_num 32 \
 --subvector_bits 8 \
---nprobe 10
+--nprobe 100
 ```
+
+top5:0.2886426592797784, top10:0.3664819944598338, top20:0.45013850415512463, top30:0.4955678670360111, top50:0.5421052631578948, top100:0.6013850415512465
+
 
 + ### ScaNN Index
 ```
@@ -135,7 +138,7 @@ python ./learnable_index/train_index_and_encoder.py  \
 --index_method opq \
 --subvector_num 8 \
 --subvector_bits 8 \
---training_mode distill_index-and-two-encoders
+--training_mode distill_index-and-query-encoder
 ```
 
 
