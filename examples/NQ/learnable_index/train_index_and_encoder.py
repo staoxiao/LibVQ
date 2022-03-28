@@ -99,7 +99,7 @@ if __name__ == '__main__':
                                             lr_params={'encoder_lr': 5e-6, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
                                             loss_method='contras',
                                             fix_emb='doc',
-                                            epochs=16)
+                                            epochs=8)
 
     # distill learning
     if training_args.training_mode == 'distill_index-and-query-encoder':
@@ -113,7 +113,7 @@ if __name__ == '__main__':
                                             per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=64,
+                                            per_device_train_batch_size=24,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,
@@ -187,7 +187,7 @@ if __name__ == '__main__':
                                             per_query_neg_num=100,
                                             checkpoint_path=data_args.save_ckpt_dir,
                                             logging_steps=training_args.logging_steps,
-                                            per_device_train_batch_size=64,    #training_args.per_device_train_batch_size,
+                                            per_device_train_batch_size=24,    #training_args.per_device_train_batch_size,
                                             checkpoint_save_steps=training_args.checkpoint_save_steps,
                                             max_grad_norm=training_args.max_grad_norm,
                                             temperature=training_args.temperature,

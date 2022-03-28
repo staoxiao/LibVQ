@@ -52,6 +52,7 @@ if __name__ == '__main__':
     text_encoder = Encoder(query_encoder=query_encoder,
                            doc_encoder=doc_encoder)
 
+
     # Generate embeddings of queries and docs
     inference(data_dir=data_args.preprocess_dir,
               is_query=False,

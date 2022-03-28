@@ -48,7 +48,7 @@ class LearnableIndex(FaissIndex):
 
         if init_index_file is None or not os.path.exists(init_index_file):
             logging.info(f"generating the init index by faiss")
-            self.index = FaissIndex(doc_embeddings=doc_embeddings,
+            faiss_index = FaissIndex(doc_embeddings=doc_embeddings,
                                     emb_size=emb_size,
                                     ivf_centers_num=ivf_centers_num,
                                     subvector_num=subvector_num,
@@ -60,7 +60,8 @@ class LearnableIndex(FaissIndex):
                 init_index_file = f'./temp/{index_method}_ivf{ivf_centers_num}_pq{subvector_num}x{subvector_bits}.index'
                 os.makedirs('./temp', exist_ok=True)
             logging.info(f"save the init index to {init_index_file}")
-            self.index.save_index(init_index_file)
+            faiss_index.save_index(init_index_file)
+            self.index = faiss_index.index
         else:
             logging.info(f"loading the init index from {init_index_file}")
             self.index = faiss.read_index(init_index_file)
@@ -92,6 +93,36 @@ class LearnableIndex(FaissIndex):
                     f"The subvector_bits :{vq_model.pq.subvector_bits} of index from {init_index_file} is not equal to you set: {subvector_bits}. "
                     f"please use the correct saved index or set it None to create a new faiss index")
 
+    def update_index_with_ckpt(self,
+                               ckpt_file: str = None,
+                               saved_ckpts_path: str = None,
+                               doc_embeddings: numpy.ndarray = None):
+        '''
+        Update the index based on the saved ckpt
+        :param ckpt_path: The trained ckpt file. If set None, it will select the lateset ckpt in saved_ckpts_path.
+        :param saved_ckpts_path: The path to save the ckpts
+        :param doc_embeddings: embeddings of docs
+        :return:
+        '''
+        if ckpt_file is None:
+            assert saved_ckpts_path is not None
+            ckpt_file = self.get_latest_ckpt(saved_ckpts_path)
+
+        logging.info(f"updating index based on {ckpt_file}")
+
+        ivf_file = os.path.join(ckpt_file, 'ivf_centers.npy')
+        if os.path.exists(ivf_file):
+            logging.info(f"loading ivf centers from {ivf_file}")
+            center_vecs = np.load(ivf_file)
+            self.update_ivf(center_vecs)
+
+        codebook_file = os.path.join(ckpt_file, 'codebook.npy')
+        if os.path.exists(codebook_file):
+            logging.info(f"loading codebook from {codebook_file}")
+            codebook = np.load(codebook_file)
+            self.update_pq(codebook=codebook, doc_embeddings=doc_embeddings)
+
+
     def update_ivf(self,
                    center_vecs: numpy.ndarray):
         if isinstance(self.index, faiss.IndexPreTransform):
@@ -121,27 +152,6 @@ class LearnableIndex(FaissIndex):
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
         self.index.add(doc_embeddings)
 
-    def update_index_with_ckpt(self,
-                               ckpt_path: str = None,
-                               saved_ckpts_path: str = None,
-                               doc_embeddings: numpy.ndarray = None):
-        if ckpt_path is None:
-            assert saved_ckpts_path is not None
-            ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
-
-        logging.info(f"updating index based on {ckpt_path}")
-
-        ivf_file = os.path.join(ckpt_path, 'ivf_centers.npy')
-        if os.path.exists(ivf_file):
-            logging.info(f"loading ivf centers from {ivf_file}")
-            center_vecs = np.load(ivf_file)
-            self.update_ivf(center_vecs)
-
-        codebook_file = os.path.join(ckpt_path, 'codebook.npy')
-        if os.path.exists(codebook_file):
-            logging.info(f"loading codebook from {codebook_file}")
-            codebook = np.load(codebook_file)
-            self.update_pq(codebook=codebook, doc_embeddings=doc_embeddings)
 
     def get_latest_ckpt(self, saved_ckpts_path: str):
         if len(os.listdir(saved_ckpts_path)) == 0: raise IOError(f"There is no ckpt in path: {saved_ckpts_path}")

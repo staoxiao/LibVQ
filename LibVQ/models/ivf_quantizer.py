@@ -2,12 +2,22 @@ import faiss
 import numpy as np
 import torch
 from torch import nn
+from typing import Dict, List
 
 from LibVQ.utils import dist_gather_tensor
 
 
 class IVFCPU(nn.Module):
-    def __init__(self, center_vecs, id2center):
+    """
+    Efficiently training IVF on CPU. In this way you can use a large-scale IVF index.
+    """
+    def __init__(self,
+                 center_vecs: np.ndarray,
+                 id2center: Dict[int, int]):
+        """
+        :param center_vecs: Vectors for all centers
+        :param id2center: Mapping Doc id to center id
+        """
         super(IVFCPU, self).__init__()
         self.center_vecs = center_vecs
         self.id2center = id2center
@@ -40,13 +50,18 @@ class IVFCPU(nn.Module):
         ivf = cls(center_vecs, id2center)
         return ivf
 
-    def get_batch_centers(self, batch_centers_index, device):
+    def get_batch_centers(self,
+                          batch_centers_index: List[int],
+                          device: torch.device):
         c_embs = self.center_vecs[batch_centers_index]
         self.batch_centers_index = batch_centers_index
         self.batch_center_vecs = torch.FloatTensor(c_embs).to(device)
         self.batch_center_vecs.requires_grad = True
 
-    def merge_and_dispatch(self, doc_ids, neg_ids, world_size):
+    def merge_and_dispatch(self,
+                           doc_ids: List[int],
+                           neg_ids: List[int],
+                           world_size: int):
         dc_ids = [self.id2center[i] for i in doc_ids]
         nc_ids = [self.id2center[i] for i in neg_ids]
 
@@ -67,7 +82,11 @@ class IVFCPU(nn.Module):
         batch_nc_ids = torch.LongTensor([cid2bid[x] for x in nc_ids])
         return batch_cids, batch_dc_ids, batch_nc_ids
 
-    def select_centers(self, doc_ids, neg_ids, device, world_size):
+    def select_centers(self,
+                       doc_ids: List[int],
+                       neg_ids: List[int],
+                       device: torch.device,
+                       world_size: int):
         batch_cids, batch_dc_ids, batch_nc_ids = self.merge_and_dispatch(doc_ids, neg_ids, world_size=world_size)
 
         self.get_batch_centers(batch_cids, device)
@@ -76,7 +95,8 @@ class IVFCPU(nn.Module):
         nc_emb = self.batch_center_vecs.index_select(dim=0, index=batch_nc_ids)
         return dc_emb, nc_emb
 
-    def grad_accumulate(self, world_size):
+    def grad_accumulate(self,
+                        world_size: int):
         if world_size > 1:
             grad = dist_gather_tensor(self.batch_center_vecs.grad.unsqueeze(0), world_size=world_size, detach=True)
             grad = torch.mean(grad, dim=0).detach().cpu().numpy()
@@ -85,11 +105,13 @@ class IVFCPU(nn.Module):
 
         self.center_grad[self.batch_centers_index] += grad
 
-    def update_centers(self, lr: float):
+    def update_centers(self,
+                       lr: float):
         self.center_vecs = self.center_vecs - lr * self.center_grad
 
     def zero_grad(self):
         self.center_grad = np.zeros_like(self.center_grad)
 
-    def save(self, save_file):
+    def save(self,
+             save_file: str):
         np.save(save_file, self.center_vecs)

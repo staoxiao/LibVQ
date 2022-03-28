@@ -59,6 +59,12 @@ class LearnableIndexWithEncoder(LearnableIndex):
     def update_encoder(self,
                        encoder_file: str = None,
                        saved_ckpts_path: str = None):
+        '''
+        update the encoder
+
+        :param encoder_file: Ckpt of encoder. If set None, it will select the latest ckpt in saved_ckpts_path
+        :param saved_ckpts_path: The path to save the ckpts
+        '''
         if encoder_file is None:
             assert saved_ckpts_path is not None
             ckpt_path = self.get_latest_ckpt(saved_ckpts_path)
@@ -74,6 +80,18 @@ class LearnableIndexWithEncoder(LearnableIndex):
                batch_size: int,
                is_query: bool,
                return_vecs: bool = False):
+        '''
+        encode text into embedding
+
+        :param data_dir: Path to preprocessed data
+        :param prefix: Prefix of data. e.g., docs, train-queries, test-queries
+        :param max_length: The max length of tokens
+        :param output_dir: Path to save embeddings
+        :param batch_size: Batch size
+        :param is_query: Set True when infer the embeddigns of query
+        :param return_vecs: Whether return vectors
+        :return: None or embeddigns
+        '''
         os.makedirs(output_dir, exist_ok=True)
         vecs = inference(data_dir=data_dir,
                          is_query=is_query,
@@ -136,7 +154,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
         :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
         :param temperature: Temperature for softmax
         :param loss_method: We provide two loss: 'contrastive' and 'distill'
-        :param fix_emb: Fix the embeddings of query or doc
+        :param fix_emb: Fix the embeddings of query or doc. 'doc' means to fix the embeddings of doc; 'query' means to fix the embeddings of query; 'query,doc' means to  fix both embeddings.
         :param weight_decay: Hyper-parameter for Optimizer
         :param max_grad_norm: Used for gradient normalization
         :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
@@ -266,7 +284,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
         :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
         :param temperature: Temperature for softmax
         :param loss_method: We provide two loss: 'contrastive' and 'distill'
-        :param fix_emb: Fix the embeddings of query or doc
+        :param fix_emb: Fix the embeddings of query or doc. 'doc' means to fix the embeddings of doc; 'query' means to fix the embeddings of query; 'query,doc' means to  fix both embeddings.
         :param weight_decay: Hyper-parameter for Optimizer
         :param max_grad_norm: Used for gradient normalization
         :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.

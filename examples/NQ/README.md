@@ -32,10 +32,10 @@ python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/NQ/preprocess \
 --embeddings_dir ./data/NQ/evaluate/dpr \
 --index_method ivf_opq \
---ivf_centers_num 10000 \
---subvector_num 32 \
+--ivf_centers_num 1000 \
+--subvector_num 8 \
 --subvector_bits 8 \
---nprobe 100
+--nprobe 10
 ```
 
 top5:0.2886426592797784, top10:0.3664819944598338, top20:0.45013850415512463, top30:0.4955678670360111, top50:0.5421052631578948, top100:0.6013850415512465
@@ -102,10 +102,10 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [Scann](./examples/NQ/basic_index/scann_index.py) | 0.2526 | 0.3351 | 0.4144 | 0.6016 |
 [LibVQ(contrastive_index)](./examples/NQ/learnable_index/train_index.py) | 0.3398 | 0.4415 | 0.5232 | 0.6911 
 [LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3952 | 0.4900 | 0.5667 | 0.7232
-[LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | **0.4066** | **0.4936** | **0.5759** | **0.7301**
+[LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | 0.4066 | 0.4936 | 0.5759 | 0.7301
 [LibVQ(contrastive_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3548 | 0.4470 | 0.5390 | 0.7120 
-[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3759 | 0.4698 | 0.5515 | 0.7121 
-[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3878 | 0.4789 | 0.5523 | 0.7152
+[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4725 | 0.5681 | 0.6429 | 0.7739 
+[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.4977** | **0.5822** | **0.6484** | **0.7764**
 
 
 
@@ -124,7 +124,7 @@ python ./learnable_index/train_index.py  \
 --index_method opq \
 --subvector_num 8 \
 --subvector_bits 8 \
---training_mode distill_index
+--training_mode distill_index_nolabel
 ```
 
 Besides, you can train both doc encoder and query encoder when only train PQ (`training_mode = distill_index-and-two-encoders`).
@@ -138,7 +138,7 @@ python ./learnable_index/train_index_and_encoder.py  \
 --index_method opq \
 --subvector_num 8 \
 --subvector_bits 8 \
---training_mode distill_index-and-query-encoder
+--training_mode distill_index-and-two-encoders
 ```
 
 
@@ -151,8 +151,9 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [Scann](./examples/NQ/basic_index/scann_index.py) | 0.2526 | 0.3351 | 0.4144 | 0.6013 |
 [LibVQ(distill_index)](./examples/NQ/learnable_index/train_index.py) | 0.3817 | 0.4806 | 0.5681 | 0.7357  
 [LibVQ(distill_index_nolabel)](./examples/NQ/learnable_index/train_index.py) | 0.3880 | 0.4858 | 0.5819 | 0.7423    
-[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.3590 | 0.4570 | 0.5465 | 0.7202   
-[LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.4426** | **0.5376** | **0.6191** | **0.7709**  
-[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4265 | 0.5210 | 0.6038 | 0.7540  
+[LibVQ(distill_index-and-query-encoder)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4709 | 0.5689 | 0.6481 | 0.7930   
+[LibVQ(distill_index-and-query-encoder_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.4883 | 0.5903 | 0.6678 | 0.7914   
+[LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.5637** | **0.6515** | **0.7171** | **0.8257**  
+[LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.5285 | 0.6144 | 0.7296 | 0.8096  
 
 

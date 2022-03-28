@@ -107,7 +107,7 @@ def train_model(
             optimizer, num_warmup_steps=int(warmup_steps_ratio * num_train_steps), num_training_steps=num_train_steps
         )
 
-        if world_size > 1:
+        if world_size > 1 and len(param_optimizer) > 0:
             model = DDP(model,
                         device_ids=[local_rank],
                         output_device=local_rank,
@@ -135,6 +135,9 @@ def train_model(
                     if use_ivf:
                         if loss_weight['ivf_weight'] == 'scaled_to_pqloss':
                             weight = batch_pq_loss / (batch_ivf_loss + 1e-6)
+                            if weight == 0:
+                                logging.info("There is no loss for pq; use 'scaled_to_denseloss' ")
+                                weight = batch_dense_loss / (batch_ivf_loss + 1e-6)
                         elif loss_weight['ivf_weight'] == 'scaled_to_denseloss':
                             weight = batch_dense_loss / (batch_ivf_loss + 1e-6)
                         else:

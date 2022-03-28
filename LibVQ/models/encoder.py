@@ -29,7 +29,7 @@ class Encoder(BaseEncoder):
     def __init__(self,
                  query_encoder=None,
                  doc_encoder=None):
-        nn.Module.__init__(self)
+        BaseEncoder.__init__(self)
         self.query_encoder = query_encoder
         self.doc_encoder = doc_encoder
 

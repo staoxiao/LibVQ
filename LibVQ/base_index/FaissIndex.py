@@ -2,8 +2,10 @@ import math
 import time
 
 import faiss
+import numpy
 import numpy as np
 from tqdm import tqdm
+from typing import Dict, List
 
 from LibVQ.base_index import BaseIndex
 
@@ -17,6 +19,17 @@ class FaissIndex(BaseIndex):
                  subvector_bits: int = 8,
                  dist_mode: str = 'ip',
                  doc_embeddings: np.ndarray = None):
+        """
+        Index based on Faiss Library
+
+        :param index_method: Type of index, support flat, ivf, ivf_opq, ivf_pq, opq and pq.
+        :param emb_size: Dim of embeddings.
+        :param ivf_centers_num: The number of post lists
+        :param subvector_num: The number of codebooks
+        :param subvector_bits: The number of codewords in each codebook
+        :param dist_mode: The metric to compute distance
+        :param doc_embeddings: Embedding of docs.
+        """
         BaseIndex.__init__(self, )
 
         assert dist_mode in ('ip', 'l2')
@@ -51,6 +64,7 @@ class FaissIndex(BaseIndex):
         if doc_embeddings is not None:
             self.fit(doc_embeddings)
             self.add(doc_embeddings)
+            self.is_trained = True
 
     def fit(self, embeddings):
         if self.index_method != 'flat':
@@ -86,7 +100,11 @@ class FaissIndex(BaseIndex):
         else:
             self.index.nprobe = nprobe
 
-    def search(self, query_embeddings, topk=1000, nprobe=None, batch_size=64):
+    def search(self,
+               query_embeddings: numpy.ndarray,
+               topk: int = 1000,
+               nprobe: int = None,
+               batch_size: int = 64):
         if nprobe is not None:
             self.set_nprobe(nprobe)
 
@@ -110,14 +128,14 @@ class FaissIndex(BaseIndex):
         return all_scores, all_search_results
 
     def test(self,
-             query_embeddings,
-             ground_truths,
-             topk,
-             MRR_cutoffs,
-             Recall_cutoffs,
-             nprobe=1,
-             qids=None,
-             batch_size=64):
+             query_embeddings: numpy.ndarray,
+             ground_truths: Dict[int, List[int]],
+             topk: int,
+             MRR_cutoffs: List[int],
+             Recall_cutoffs: List[int],
+             nprobe: int = 1,
+             qids: List[int] = None,
+             batch_size: int = 64):
         assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
         scores, retrieve_results = self.search(query_embeddings, topk, nprobe, batch_size)
         return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)

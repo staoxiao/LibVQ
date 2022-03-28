@@ -13,6 +13,9 @@ from LibVQ.utils import dist_gather_tensor
 
 
 class LearnableVQ(nn.Module):
+    """
+    Learnable VQ model, supports both IVF and PQ.
+    """
     def __init__(self,
                  config: Type[IndexConfig] = None,
                  index_file: str = None,
@@ -40,7 +43,11 @@ class LearnableVQ(nn.Module):
                                    subvector_bits=config.subvector_bits)
             self.ivf = None
 
-    def compute_score(self, query_vecs, doc_vecs, neg_vecs, temperature=1.0):
+    def compute_score(self,
+                      query_vecs: torch.Tensor,
+                      doc_vecs: torch.Tensor,
+                      neg_vecs: torch.Tensor,
+                      temperature: float = 1.0):
         if any(v is None for v in (query_vecs, doc_vecs, neg_vecs)): return None
 
         score = torch.matmul(query_vecs, doc_vecs.T)
@@ -48,14 +55,17 @@ class LearnableVQ(nn.Module):
         score = torch.cat([score, n_score], dim=-1)
         return score / temperature
 
-    def contras_loss(self, score):
+    def contras_loss(self,
+                     score: torch.Tensor):
         if score is None: return 0.
         labels = torch.arange(start=0, end=score.shape[0],
                               dtype=torch.long, device=score.device)
         loss = F.cross_entropy(score, labels)
         return loss
 
-    def distill_loss(self, teacher_score, student_score):
+    def distill_loss(self,
+                     teacher_score: torch.Tensor,
+                     student_score: torch.Tensor):
         if teacher_score is None or student_score is None: return 0.
         preds_smax = F.softmax(student_score, dim=1)
         true_smax = F.softmax(teacher_score, dim=1)
@@ -64,7 +74,12 @@ class LearnableVQ(nn.Module):
         loss = torch.mean(-torch.sum(true_smax * preds_log, dim=1))
         return loss
 
-    def compute_loss(self, origin_score, dense_score, ivf_score, pq_score, loss_method='contras'):
+    def compute_loss(self,
+                     origin_score: torch.Tensor,
+                     dense_score: torch.Tensor,
+                     ivf_score: torch.Tensor,
+                     pq_score: torch.Tensor,
+                     loss_method: str = 'distill'):
         if loss_method == 'contras':
             dense_loss = self.contras_loss(dense_score)
             ivf_loss = self.contras_loss(ivf_score)
@@ -96,15 +111,21 @@ class LearnableVQ(nn.Module):
             query_vecs = origin_q_emb
         else:
             query_vecs = self.encoder.query_emb(query_token_ids, query_attention_mask)
-        rotate_query_vecs = self.pq.rotate_vec(query_vecs)
 
         if fix_emb is not None and 'doc' in fix_emb:
             doc_vecs, neg_vecs = origin_d_emb, origin_n_emb
         else:
             doc_vecs = self.encoder.doc_emb(doc_token_ids, doc_attention_mask)
             neg_vecs = self.encoder.doc_emb(neg_token_ids, neg_attention_mask)
-        rotate_doc_vecs = self.pq.rotate_vec(doc_vecs)
-        rotate_neg_vecs = self.pq.rotate_vec(neg_vecs)
+
+        if self.pq is not None:
+            rotate_query_vecs = self.pq.rotate_vec(query_vecs)
+            rotate_doc_vecs = self.pq.rotate_vec(doc_vecs)
+            rotate_neg_vecs = self.pq.rotate_vec(neg_vecs)
+        else:
+            rotate_query_vecs = query_vecs
+            rotate_doc_vecs = doc_vecs
+            rotate_neg_vecs = neg_vecs
 
         if self.ivf is not None:
             dc_emb, nc_emb = self.ivf.select_centers(doc_ids, neg_ids, query_vecs.device, world_size=world_size)
@@ -155,8 +176,7 @@ class LearnableVQ(nn.Module):
         return dist_gather_tensor(vecs, world_size=dist.get_world_size(), local_rank=dist.get_rank(), detach=False)
 
     def save(self, save_path):
-        self.pq.save(save_path)
-
+        if self.pq is not None: self.pq.save(save_path)
         if self.encoder is not None: self.encoder.save(os.path.join(save_path, 'encoder.bin'))
         if self.ivf is not None: self.ivf.save(os.path.join(save_path, 'ivf_centers'))
         if self.config is not None: self.config.to_json_file(os.path.join(save_path, 'config.json'))

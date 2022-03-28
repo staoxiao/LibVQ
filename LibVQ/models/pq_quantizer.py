@@ -9,7 +9,22 @@ from torch import nn
 
 
 class Quantization(nn.Module):
-    def __init__(self, emb_size=768, subvector_num=96, subvector_bits=8, rotate=None, codebook=None):
+    """
+    End-to-end Product Quantization
+    """
+    def __init__(self,
+                 emb_size: int = 768,
+                 subvector_num: int = 96,
+                 subvector_bits: int = 8,
+                 rotate: np.ndarray = None,
+                 codebook: np.ndarray = None):
+        """
+        :param emb_size: Dim of embeddings
+        :param subvector_num: The number of codebooks
+        :param subvector_bits: The number of codewords in each codebook
+        :param rotate:  The rotate Matrix. Used for OPQ
+        :param codebook: The parameter for codebooks. If set None, it will randomly initialize the codebooks.
+        """
         super(Quantization, self).__init__()
 
         if codebook is not None:
@@ -28,7 +43,7 @@ class Quantization(nn.Module):
             self.rotate = None
 
     @classmethod
-    def from_faiss_index(cls, index_file):
+    def from_faiss_index(cls, index_file: str):
         print(f'loading PQ from Faiss index: {index_file}')
         index = faiss.read_index(index_file)
 
@@ -48,24 +63,28 @@ class Quantization(nn.Module):
         pq = cls(subvector_num=subvector_num, rotate=rotate, codebook=codebook)
         return pq
 
-    def rotate_vec(self, vecs):
+    def rotate_vec(self,
+                   vecs):
         if self.rotate is None:
             return vecs
         return torch.matmul(vecs, self.rotate.T)
 
-    def code_selection(self, vecs):
+    def code_selection(self,
+                       vecs):
         vecs = vecs.view(vecs.size(0), self.subvector_num, -1)
         codebook = self.codebook.unsqueeze(0).expand(vecs.size(0), -1, -1, -1)
         proba = - torch.sum((vecs.unsqueeze(-2) - codebook) ** 2, -1)
         assign = F.softmax(proba, -1)
         return assign
 
-    def STEstimator(self, assign):
+    def STEstimator(self,
+                    assign):
         index = assign.max(dim=-1, keepdim=True)[1]
         assign_hard = torch.zeros_like(assign, device=assign.device, dtype=assign.dtype).scatter_(-1, index, 1.0)
         return assign_hard.detach() - assign.detach() + assign
 
-    def quantized_vecs(self, assign):
+    def quantized_vecs(self,
+                       assign):
         assign = self.STEstimator(assign)
         assign = assign.unsqueeze(2)
         codebook = self.codebook.unsqueeze(0).expand(assign.size(0), -1, -1, -1)
@@ -73,15 +92,19 @@ class Quantization(nn.Module):
         quantized_vecs = quantized_vecs.view(assign.size(0), -1)
         return quantized_vecs
 
-    def quantization(self, vecs):
+    def quantization(self,
+                     vecs):
         assign = self.code_selection(vecs)
         quantized_vecs = self.quantized_vecs(assign)
         return quantized_vecs
 
-    def quantization_loss(self, vec, quantized_vecs):
+    def quantization_loss(self,
+                          vec,
+                          quantized_vecs):
         return torch.mean(torch.sum((vec - quantized_vecs) ** 2, dim=-1))
 
-    def save(self, save_path):
+    def save(self,
+             save_path):
         if self.rotate is not None:
             np.save(os.path.join(save_path, 'rotate_matrix'), self.rotate.detach().cpu().numpy())
         np.save(os.path.join(save_path, 'codebook'), self.codebook.detach().cpu().numpy())

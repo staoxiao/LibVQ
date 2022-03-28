@@ -20,11 +20,9 @@ def inference_dataset(encoder: Encoder,
                       return_vecs: bool = False,
                       save_to_memmap: bool = True):
     if output_file is not None:
-        if os.path.exists(output_file + '_finished.flag') and not enable_rewrite:
-            print(f"{output_file}_finished.flag exists, skip inference")
+        if os.path.exists(output_file) and not enable_rewrite:
+            print(f"{output_file} exists ! Please save to another path.")
             return
-        if os.path.exists(output_file): os.remove(output_file)
-
         output_memmap = None
 
     if return_vecs or not save_to_memmap: vecs = []
@@ -48,26 +46,22 @@ def inference_dataset(encoder: Encoder,
         attention_mask = attention_mask.to(device)
 
         with torch.no_grad():
-            logits = encoder(input_ids=input_ids, attention_mask=attention_mask,
+            batch_vecs = encoder(input_ids=input_ids, attention_mask=attention_mask,
                              is_query=is_query).detach().cpu().numpy()
 
         if output_file is not None:
             if save_to_memmap:
                 if output_memmap is None: output_memmap = np.memmap(output_file, dtype=np.float32, mode="w+",
-                                                                    shape=(len(dataset), np.shape(logits)[-1]))
-                write_size = len(logits)
-                output_memmap[write_index:write_index + write_size] = logits
+                                                                    shape=(len(dataset), np.shape(batch_vecs)[-1]))
+                write_size = len(batch_vecs)
+                output_memmap[write_index:write_index + write_size] = batch_vecs
                 write_index += write_size
 
-        if return_vecs or not save_to_memmap: vecs.extend(logits)
+        if return_vecs or not save_to_memmap: vecs.extend(batch_vecs)
 
     if output_file is not None:
-        if save_to_memmap:
-            assert write_index == len(output_memmap)
-        else:
+        if not save_to_memmap:
             np.save(output_file, np.array(vecs))
-        open(output_file + '_finished.flag', 'w')
-
     if return_vecs: return np.array(vecs)
 
 
