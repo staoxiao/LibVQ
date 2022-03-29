@@ -43,7 +43,7 @@ if __name__ == '__main__':
     index_file = os.path.join(data_args.embeddings_dir,
                               f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
     index.save_index(index_file)
-    index.load_index(index_file)
+    # index.load_index(index_file)
 
     # Test the performance
     scores, ann_items = index.search(query_embeddings, topk=100, nprobe=index_args.nprobe)

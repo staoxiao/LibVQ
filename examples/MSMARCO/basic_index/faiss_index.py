@@ -34,12 +34,12 @@ if __name__ == '__main__':
                        dist_mode=index_args.dist_mode)
 
     print('Training the index with doc embeddings')
-    # index.fit(doc_embeddings)
-    # index.add(doc_embeddings)
+    index.fit(doc_embeddings)
+    index.add(doc_embeddings)
 
     index_file = os.path.join(data_args.embeddings_dir, f'{index_args.index_method}_ivf{index_args.ivf_centers_num}_pq{index_args.subvector_num}x{index_args.subvector_bits}.index')
-    # index.save_index(index_file)
-    index.load_index(index_file)
+    index.save_index(index_file)
+    # index.load_index(index_file)
 
     # Test the performance
     ground_truths = load_rel(os.path.join(data_args.preprocess_dir, 'dev-rels.tsv'))
