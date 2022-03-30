@@ -32,9 +32,9 @@ pleaser refer to [dataset.README.md](../../LibVQ/dataset/README.md)
 python ./basic_index/faiss_index.py  \
 --preprocess_dir ./data/passage/preprocess \
 --embeddings_dir ./data/passage/evaluate/co-condenser \
---index_method ivf_pq \
+--index_method ivf_opq \
 --ivf_centers_num 10000 \
---subvector_num 32 \
+--subvector_num 64 \
 --subvector_bits 8 \
 --nprobe 100
 ```

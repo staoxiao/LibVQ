@@ -10,7 +10,7 @@ from transformers import HfArgumentParser
 from LibVQ.base_index import FaissIndex
 from LibVQ.dataset.dataset import load_rel
 
-faiss.omp_set_num_threads(32)
+
 
 if __name__ == '__main__':
     parser = HfArgumentParser((IndexArguments, DataArguments, ModelArguments, TrainingArguments))

@@ -76,8 +76,8 @@ class BaseIndex():
         score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size, nprobe=nprobe)
         query2hardneg = {}
         for qid, neighbors in enumerate(search_results):
-            neg = list(filter(lambda x: x not in ground_truths[qid], neighbors))
-            query2hardneg[qid] = [x for x in neg if x != -1]
+            neg = list(filter(lambda x: x not in ground_truths[qid] and x != -1, neighbors))
+            query2hardneg[qid] = neg
         return query2hardneg
 
     def generate_virtual_traindata(self,

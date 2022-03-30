@@ -2,6 +2,7 @@ import sys
 sys.path.append('./')
 import os
 import pickle
+import gc
 
 import faiss
 import numpy as np
@@ -62,6 +63,8 @@ if __name__ == '__main__':
                                                            batch_size=64,
                                                            nprobe=min(index_args.ivf_centers_num, 500))
         pickle.dump(trainquery2hardneg, open(neg_file, 'wb'))
+        del trainquery2hardneg
+        gc.collect()
 
     data_args.save_ckpt_dir = f'./saved_ckpts/{training_args.training_mode}_{index_args.index_method}/'
 
@@ -131,6 +134,8 @@ if __name__ == '__main__':
                 pickle.dump(query2neg,
                             open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
 
+                del query2neg, query2pos
+                gc.collect()
 
     # distill with no label data
     if training_args.training_mode == 'distill_index_nolabel':
