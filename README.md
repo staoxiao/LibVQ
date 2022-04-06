@@ -87,3 +87,13 @@ Methods | Recall@5 | Recall@10 | Recall@20 | Recall@100 |
 [LibVQ(distill_index-and-two-encoders)](./examples/NQ/learnable_index/train_index_and_encoder.py) | **0.5637** | **0.6515** | **0.7171** | **0.8257**  
 [LibVQ(distill_index-and-two-encoders_nolabel)](./examples/NQ/learnable_index/train_index_and_encoder.py) | 0.5285 | 0.6144 | 0.7296 | 0.8096  
 
+
+
+
+## Related Work  
+* **[Distii-VQ](https://arxiv.org/abs/2204.00185)**: Unifies the learning of IVF and PQ within a knowledge distillation framework.  Accpted as a full paper by SIGIR 2022.
+
+* **[BiDR](https://arxiv.org/abs/2201.05409)**: Applies the learnable PQ in large-scale index and proposes the progressively optimized docs' embeddings for the better retrieval performance. Accpted as a full paper by WWW 2022.
+
+* **[MoPQ](https://arxiv.org/abs/2104.07858)**: This work identifies the limitation of using reconstruction loss minimization as the training objective of learnable PQ and proposes the Multinoulli Contrastive Loss. Accpted as a full paper by EMNLP 2021.
+
