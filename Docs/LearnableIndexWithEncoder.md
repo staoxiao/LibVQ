@@ -1,4 +1,4 @@
-#  [LearnableIndexWithEncoder](./LibVQ/learnable_index/learnable_index_with_encoder.py)   
+#  [LearnableIndexWithEncoder](../LibVQ/learnable_index/learnable_index_with_encoder.py)   
 This class can jointly train the index and encoder, which often can get the best performance. For efficiency, it is also implemented base on [faiss](https://github.com/facebookresearch/faiss), so it supports all operations in faiss (e.g., GPU acceleration). Specifically,
 you can get a origin faiss index by `index = LearnableIndex.index`, and apply faiss operations to it.
 
@@ -79,5 +79,5 @@ scores, ann_items = learnable_index.search(query_embeddings = query_embeddings,
 **5. Save and Load**  
 Same usage as [LearnableIndex](./LearnableIndex.md).
 
-**Please refer to example: [MSMARCO/train_index_and_encoder](examples/MSMARCO/learnable_index/train_index_and_encoder.py) or 
-[NQ/train_index_and_encoder](examples/NQ/learnable_index/train_index_and_encoder.py) for more information**
+**Please refer to example: [MSMARCO/train_index_and_encoder](../examples/MSMARCO/learnable_index/train_index_and_encoder.py) or 
+[NQ/train_index_and_encoder](../examples/NQ/learnable_index/train_index_and_encoder.py) for more information**

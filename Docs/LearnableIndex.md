@@ -1,4 +1,4 @@
-# [LearnableIndex](./LibVQ/learnable_index/learnable_index.py)  
+# [LearnableIndex](../LibVQ/learnable_index/learnable_index.py)
 ```python
 from LibVQ.learnable_index import LearnableIndex
 ```
@@ -61,5 +61,5 @@ import faiss
 index = faiss.read_index(saved_index_file)
 ```
 
-**Please refer to example: [MSMARCO/train_index](examples/MSMARCO/learnable_index/train_index.py) or [NQ/train_index](examples/NQ/learnable_index/train_index.py) for more information**
+**Please refer to example: [MSMARCO/train_index](../examples/MSMARCO/learnable_index/train_index.py) or [NQ/train_index](../examples/NQ/learnable_index/train_index.py) for more information**
 
