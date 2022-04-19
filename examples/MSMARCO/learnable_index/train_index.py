@@ -112,30 +112,31 @@ if __name__ == '__main__':
                                             loss_method='distill',
                                             epochs=30)
 
-        if 'nolabel' in training_args.training_mode:
-            '''
-                    If there is not relevance data, you can set the rel_file/rel_data to None, and it will automatically generate the data for training.
-                    You also can manually generate the data as following:
-                    '''
-            # generate train data by brute-force or the index which should has similar performance with brute force
-            if not os.path.exists(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv')):
-                print('generating relevance labels for train queries ...')
-                # flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
-                # query2pos, query2neg = flat_index.generate_virtual_traindata(train_query_embeddings,
-                #                                                                                        topk=400, batch_size=64)
-                # or
-                query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
-                                                                                  topk=400,
-                                                                                  batch_size=64,
-                                                                                  nprobe=min(index_args.ivf_centers_num,
-                                                                                             500))
 
-                write_rel(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'), query2pos)
-                pickle.dump(query2neg,
-                            open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
+    if 'nolabel' in training_args.training_mode:
+        '''
+                If there is not relevance data, you can set the rel_file/rel_data to None, and it will automatically generate the data for training.
+                You also can manually generate the data as following:
+                '''
+        # generate train data by brute-force or the index which should has similar performance with brute force
+        if not os.path.exists(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv')):
+            print('generating relevance labels for train queries ...')
+            # flat_index = FaissIndex(doc_embeddings=doc_embeddings, index_method='flat', dist_mode='ip')
+            # query2pos, query2neg = flat_index.generate_virtual_traindata(train_query_embeddings,
+            #                                                                                        topk=400, batch_size=64)
+            # or
+            query2pos, query2neg = learnable_index.generate_virtual_traindata(train_query_embeddings,
+                                                                              topk=400,
+                                                                              batch_size=64,
+                                                                              nprobe=min(index_args.ivf_centers_num,
+                                                                                         500))
 
-                del query2neg, query2pos
-                gc.collect()
+            write_rel(os.path.join(data_args.embeddings_dir, 'train-virtual_rel.tsv'), query2pos)
+            pickle.dump(query2neg,
+                        open(os.path.join(data_args.embeddings_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
+
+            del query2neg, query2pos
+            gc.collect()
 
     # distill with no label data
     if training_args.training_mode == 'distill_index_nolabel':
