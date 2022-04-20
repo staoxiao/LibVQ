@@ -26,6 +26,7 @@ if __name__ == '__main__':
     query_embeddings = query_embeddings.reshape(-1, emb_size)
 
     # Creat Faiss index
+    faiss.omp_set_num_threads(32)
     index = FaissIndex(index_method=index_args.index_method,
                        emb_size=len(doc_embeddings[0]),
                        ivf_centers_num=index_args.ivf_centers_num,
