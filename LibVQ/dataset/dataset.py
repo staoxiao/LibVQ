@@ -57,7 +57,10 @@ class DatasetForVQ(Dataset):
         self.doc_embeddings = self.init_embedding(doc_embeddings, emb_size=emb_size)
         self.query_embeddings = self.init_embedding(query_embeddings, emb_size=emb_size)
 
-        self.docs_list = list(range(len(self.doc_embeddings)))
+        if self.doc_embeddings is not None:
+            self.docs_list = list(range(len(self.doc_embeddings)))
+        else:
+            self.docs_list = list(range(len(self.doc_dataset)))
         self.query_list = list(self.query2pos.keys())
 
         if neg_data is not None:
@@ -139,9 +142,9 @@ class DataCollatorForVQ():
                 neg_token_ids.extend(negs_tokens)
                 neg_attention_mask.extend([torch.tensor([1] * len(x)) for x in negs_tokens])
 
-            origin_q_emb.append(q_emb)
-            origin_d_emb.append(d_emb)
-            origin_n_emb.extend(n_emb)
+            if q_emb is not None: origin_q_emb.append(q_emb)
+            if d_emb is not None: origin_d_emb.append(d_emb)
+            if n_emb is not None: origin_n_emb.extend(n_emb)
 
             doc_ids.append(pos)
             neg_ids.extend(negs)
@@ -160,9 +163,9 @@ class DataCollatorForVQ():
         else:
             doc_token_ids, doc_attention_mask, neg_token_ids, neg_attention_mask = None, None, None, None
 
-        origin_q_emb = torch.FloatTensor(origin_q_emb) if origin_q_emb[0] is not None else None
-        origin_d_emb = torch.FloatTensor(origin_d_emb) if origin_d_emb[0] is not None else None
-        origin_n_emb = torch.FloatTensor(origin_n_emb) if origin_n_emb[0] is not None else None
+        origin_q_emb = torch.FloatTensor(origin_q_emb) if len(origin_q_emb)>0 else None
+        origin_d_emb = torch.FloatTensor(origin_d_emb) if len(origin_d_emb)>0  else None
+        origin_n_emb = torch.FloatTensor(origin_n_emb) if len(origin_n_emb)>0 else None
 
         batch = {
             "query_token_ids": query_token_ids,

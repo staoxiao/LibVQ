@@ -27,7 +27,11 @@ class LearnableVQ(nn.Module):
         self.encoder = encoder
         if index_file is not None:
             if 'ivf' not in index_method and 'pq' not in index_method:
-                raise ValueError(f"The index type:{index_method} is not supported!")
+                self.ivf = None
+                self.pq = None
+                print(f'There in no learnable parameters in this index: {index_file}')
+                # raise ValueError(f"The index type:{index_method} is not supported!")
+
             if 'ivf' in index_method:
                 self.ivf = IVFCPU.from_faiss_index(index_file)
             else:

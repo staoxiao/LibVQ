@@ -5,15 +5,14 @@ with open("README.md", mode="r", encoding="utf-8") as readme_file:
 
 setup(
     name="LibVQ",
-    version="0.1.0",
-    author="MSRA-STCA",
-    author_email="xxx@xxx.com",
-    description="Vector Quantization For Efficiently Retrieval",
+    version="0.0.2",
+    author="Shitao Xiao, Zheng Liu, Yingxia Shao",
+    author_email="stxiao@bupt.edu.cn",
+    description="A Library For Dense Retrieval Oriented Vector Quantization",
     long_description=readme,
     long_description_content_type="text/markdown",
-    # license="Apache License 2.0",
-    # url="https://github.com/",
-    # download_url="https://github.com/",
+    license="MIT License",
+    url="https://github.com/staoxiao/LibVQ",
     packages=find_packages(),
     install_requires=[
         'transformers>=4.9.0',
@@ -23,5 +22,5 @@ setup(
         'torch>=1.6.0',
         'numpy'
     ],
-    keywords="Vector Quantization, Embedding based Retrieval, IVF"
+    keywords="Vector Quantization, ANN, IVF"
 )
