@@ -11,7 +11,7 @@ nprobe = 10
 
 - [ScaNN](https://github.com/google-research/google-research/tree/master/scann)
 ```python
-from LibVQ.baseindex import ScaNNIndex
+from LibVQ.base_index import ScaNNIndex
 scann_index = ScaNNIndex(doc_embeddings = doc_embeddings,
                          ivf_centers_num = ivf_centers_num,
                          subvector_num = subvector_num)
@@ -22,7 +22,7 @@ scores, ann_items = scann_index.search(query_embeddings = query_embeddings,
 
 - [Faiss](https://github.com/facebookresearch/faiss)
 ```python
-from LibVQ.baseindex import FaissIndex
+from LibVQ.base_index import FaissIndex
 faiss_index = FaissIndex(doc_embeddings = doc_embeddings,
                          ivf_centers_num = ivf_centers_num,
                          subvector_num = subvector_num,
