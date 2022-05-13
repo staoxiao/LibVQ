@@ -23,6 +23,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
                  index_method: str,
                  encoder: Encoder,
                  init_index_file: str = None,
+                 init_index_type: str = 'faiss',
                  emb_size: int = 768,
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
@@ -47,6 +48,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
         """
         LearnableIndex.__init__(self, index_method,
                                 init_index_file,
+                                init_index_type,
                                 ivf_centers_num,
                                 subvector_num,
                                 subvector_bits,
@@ -223,8 +225,9 @@ class LearnableIndexWithEncoder(LearnableIndex):
                                          )
 
         # update index
-        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                    doc_embeddings=doc_embeddings)
+        if self.index is not None:
+            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                        doc_embeddings=doc_embeddings)
 
         # delete temp folder
         if temp_checkpoint_path is not None:
@@ -372,8 +375,9 @@ class LearnableIndexWithEncoder(LearnableIndex):
             doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size)
 
         # update index
-        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                    doc_embeddings=doc_embeddings)
+        if self.index is not None:
+            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                        doc_embeddings=doc_embeddings)
 
         # delete temp folder
         if temp_checkpoint_path is not None:

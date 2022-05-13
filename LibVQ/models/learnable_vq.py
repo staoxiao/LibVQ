@@ -18,27 +18,31 @@ class LearnableVQ(nn.Module):
     """
     def __init__(self,
                  config: Type[IndexConfig] = None,
-                 index_file: str = None,
+                 init_index_file: str = None,
+                 init_index_type: str = 'faiss',
                  index_method: str = 'ivf_opq',
                  encoder=None):
         nn.Module.__init__(self)
 
         self.config = config
         self.encoder = encoder
-        if index_file is not None:
+        if init_index_file is not None:
             if 'ivf' not in index_method and 'pq' not in index_method:
                 self.ivf = None
                 self.pq = None
-                print(f'There in no learnable parameters in this index: {index_file}')
+                print(f'There in no learnable parameters in this index: {init_index_file}')
                 # raise ValueError(f"The index type:{index_method} is not supported!")
 
             if 'ivf' in index_method:
-                self.ivf = IVFCPU.from_faiss_index(index_file)
+                if init_index_type == 'SPANN':
+                    self.ivf = IVFCPU.from_spann_index(init_index_file)
+                else:
+                    self.ivf = IVFCPU.from_faiss_index(init_index_file)
             else:
                 self.ivf = None
 
             if 'pq' in index_method:
-                self.pq = Quantization.from_faiss_index(index_file)
+                self.pq = Quantization.from_faiss_index(init_index_file)
             else:
                 self.pq = None
         else:

@@ -23,6 +23,7 @@ class LearnableIndex(FaissIndex):
     def __init__(self,
                  index_method: str,
                  init_index_file: str = None,
+                 init_index_type: str = 'faiss',
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
                  subvector_bits: int = 8,
@@ -63,10 +64,16 @@ class LearnableIndex(FaissIndex):
             faiss_index.save_index(init_index_file)
             self.index = faiss_index.index
         else:
-            logging.info(f"loading the init index from {init_index_file}")
-            self.index = faiss.read_index(init_index_file)
+            if init_index_type == 'SPANN':
+                logging.info(f"loading the init SPANN index from {init_index_file}")
+                self.index = None
+                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, init_index_type='SPANN', index_method=index_method)
+            else:
+                logging.info(f"loading the init faiss index from {init_index_file}")
+                self.index = faiss.read_index(init_index_file)
 
-        self.learnable_vq = LearnableVQ(config, index_file=init_index_file, index_method=index_method)
+                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, index_method=index_method)
+
         self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file,
                                     index_method)
 
@@ -151,7 +158,6 @@ class LearnableIndex(FaissIndex):
         logging.info(f"updating the quantized results of docs' embeddings")
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
         self.index.add(doc_embeddings)
-
 
     def get_latest_ckpt(self, saved_ckpts_path: str):
         if len(os.listdir(saved_ckpts_path)) == 0: raise IOError(f"There is no ckpt in path: {saved_ckpts_path}")
@@ -275,8 +281,9 @@ class LearnableIndex(FaissIndex):
                     )
 
         # update index
-        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                    doc_embeddings=doc_embeddings)
+        if self.index is not None:
+            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                        doc_embeddings=doc_embeddings)
 
         # delete temp folder
         if temp_checkpoint_path is not None:
@@ -394,8 +401,9 @@ class LearnableIndex(FaissIndex):
                  join=True)
 
         # update index
-        self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                    doc_embeddings=doc_embeddings)
+        if self.index is not None:
+            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
+                                        doc_embeddings=doc_embeddings)
 
         # delete temp folder
         if temp_checkpoint_path is not None:

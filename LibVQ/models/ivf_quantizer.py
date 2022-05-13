@@ -1,5 +1,7 @@
+from collections import defaultdict
 import faiss
 import numpy as np
+import struct
 import torch
 from torch import nn
 from typing import Dict, List
@@ -47,6 +49,28 @@ class IVFCPU(nn.Module):
             for docid in list_ids:
                 id2center[docid] = i
 
+        ivf = cls(center_vecs, id2center)
+        return ivf
+
+    @classmethod
+    def from_spann_index(cls, index_file):
+        print(f'loading IVF from spann index: {index_file}')
+
+        with open(f'{index_file}/SPTAGHeadVectors.bin', 'rb') as fq:
+            count = struct.unpack('i', fq.read(4))[0]
+            dimension = struct.unpack('i', fq.read(4))[0]
+            center_vecs = np.frombuffer(fq.read(count * dimension * 4), dtype=np.float32).reshape((count, dimension))
+
+        id2center = defaultdict(int)
+        with open(f'{index_file}/output.txt', 'r') as f:
+            cid = 0
+            for line in f:
+                line = line.strip().split(',')
+                for id in line:
+                    id2center[int(id)] = cid
+                cid += 1
+
+        assert cid == len(center_vecs)
         ivf = cls(center_vecs, id2center)
         return ivf
 
