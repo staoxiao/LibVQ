@@ -21,11 +21,13 @@ class LearnableVQ(nn.Module):
                  init_index_file: str = None,
                  init_index_type: str = 'faiss',
                  index_method: str = 'ivf_opq',
+                 dist_mode: str = 'ip',
                  encoder=None):
         nn.Module.__init__(self)
 
         self.config = config
         self.encoder = encoder
+        self.dist_mode = dist_mode
         if init_index_file is not None:
             if 'ivf' not in index_method and 'pq' not in index_method:
                 self.ivf = None
@@ -55,13 +57,29 @@ class LearnableVQ(nn.Module):
                       query_vecs: torch.Tensor,
                       doc_vecs: torch.Tensor,
                       neg_vecs: torch.Tensor,
+                      dist_mode: str = 'ip',
                       temperature: float = 1.0):
         if any(v is None for v in (query_vecs, doc_vecs, neg_vecs)): return None
 
-        score = torch.matmul(query_vecs, doc_vecs.T)
-        n_score = torch.matmul(query_vecs, neg_vecs.T)
+        if dist_mode == 'ip':
+            score = self.inner_product(query_vecs, doc_vecs)
+            n_score = self.inner_product(query_vecs, doc_vecs)
+        elif dist_mode == 'l2':
+            score = - self.euclidean_distance(query_vecs, doc_vecs)
+            n_score = - self.euclidean_distance(query_vecs, doc_vecs)
+        else:
+            raise ValueError("The dist_mode must be ip or l2")
         score = torch.cat([score, n_score], dim=-1)
         return score / temperature
+
+    def inner_product(self, vec_1, vec_2):
+        return torch.matmul(vec_1, vec_2.T)
+
+    def euclidean_distance(self, vec_1, vec_2):
+        ip = torch.matmul(vec_1, vec_2.T)  # B D
+        norm_1 = torch.sum(vec_1 * vec_1, dim=-1, keepdim=False).unsqueeze(1).expand(-1, vec_2.size(0))  # B D
+        norm_2 = torch.sum(vec_2 * vec_2, dim=-1, keepdim=False).unsqueeze(0).expand(vec_1.size(0), -1)  # B D
+        return norm_1 + norm_2 - 2 * ip
 
     def contras_loss(self,
                      score: torch.Tensor):
@@ -169,10 +187,18 @@ class LearnableVQ(nn.Module):
                 quantized_doc = self.dist_gather_tensor(quantized_doc)
                 quantized_neg = self.dist_gather_tensor(quantized_neg)
 
-        origin_score = self.compute_score(origin_q_emb, origin_d_emb, origin_n_emb, temperature)
-        dense_score = self.compute_score(rotate_query_vecs, rotate_doc_vecs, rotate_neg_vecs, temperature)
-        ivf_score = self.compute_score(rotate_query_vecs, dc_emb, nc_emb, temperature)
-        pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg, temperature)
+        origin_score = self.compute_score(origin_q_emb, origin_d_emb, origin_n_emb,
+                                          dist_mode=self.dist_mode,
+                                          temperature=temperature)
+        dense_score = self.compute_score(rotate_query_vecs, rotate_doc_vecs, rotate_neg_vecs,
+                                         dist_mode=self.dist_mode,
+                                         temperature=temperature)
+        ivf_score = self.compute_score(rotate_query_vecs, dc_emb, nc_emb,
+                                       dist_mode=self.dist_mode,
+                                       temperature=temperature)
+        pq_score = self.compute_score(rotate_query_vecs, quantized_doc, quantized_neg,
+                                      dist_mode=self.dist_mode,
+                                      temperature=temperature)
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score,
                                                           loss_method=loss_method)

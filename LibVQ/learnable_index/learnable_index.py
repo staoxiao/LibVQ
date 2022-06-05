@@ -67,12 +67,14 @@ class LearnableIndex(FaissIndex):
             if init_index_type == 'SPANN':
                 logging.info(f"loading the init SPANN index from {init_index_file}")
                 self.index = None
-                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, init_index_type='SPANN', index_method=index_method)
+                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, init_index_type='SPANN',
+                                                index_method=index_method, dist_mode=dist_mode)
             else:
                 logging.info(f"loading the init faiss index from {init_index_file}")
                 self.index = faiss.read_index(init_index_file)
 
-                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, index_method=index_method)
+                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file,
+                                                index_method=index_method, dist_mode=dist_mode)
 
         self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file,
                                     index_method)
