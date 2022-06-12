@@ -1,10 +1,15 @@
 import logging
+import os
 import random
+import struct
 import sys
 
+import faiss
 import numpy as np
 import torch
 import torch.distributed as dist
+
+from LibVQ.base_index import FaissIndex
 
 
 def is_main_process(local_rank):
@@ -46,3 +51,24 @@ def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
         all_tensors[local_rank] = vecs
     all_tensors = torch.cat(all_tensors, dim=0)
     return all_tensors
+
+
+def save_to_STAG_binart_file(index: FaissIndex,
+                             save_dir: str):
+    # The function only supports OPQ currently.
+    rotate_matrix = index.get_rotate_matrix()
+    codebooks = index.get_codebook()
+    with open(os.path.join(save_dir, 'index_parameters.bin'), 'wb') as f:
+        f.write(struct.pack('B', 2))
+        f.write(struct.pack('B', 3))
+        f.write(struct.pack('i', codebooks.shape[0]))
+        f.write(struct.pack('i', codebooks.shape[1]))
+        f.write(struct.pack('i', codebooks.shape[2]))
+        f.write(codebooks.tobytes())
+        f.write(rotate_matrix.tobytes())
+
+    pq_index = faiss.downcast_index(index.index.index)
+    codes = faiss.vector_to_array(pq_index.codes).reshape(pq_index.ntotal, -1)
+    with open(os.path.join(save_dir, 'quantized_vectors.bin'), 'wb') as f:
+        f.write(struct.pack('ii', codes.shape[0], codes.shape[1]))
+        f.write(codes.tobytes())

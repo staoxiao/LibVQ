@@ -139,3 +139,19 @@ class FaissIndex(BaseIndex):
         assert max(max(MRR_cutoffs), max(Recall_cutoffs)) <= topk
         scores, retrieve_results = self.search(query_embeddings, topk, nprobe, batch_size)
         return self.evaluate(retrieve_results, ground_truths, MRR_cutoffs, Recall_cutoffs, qids)
+
+    def get_rotate_matrix(self):
+        assert isinstance(self.index, faiss.IndexPreTransform)
+        vt = faiss.downcast_VectorTransform(self.index.chain.at(0))
+        rotate = faiss.vector_to_array(vt.A).reshape(vt.d_out, vt.d_in)
+        return rotate
+
+    def get_codebook(self):
+        if isinstance(self.index, faiss.IndexPreTransform):
+            pq_index = faiss.downcast_index(self.index.index)
+        else:
+            pq_index = self.index
+
+        centroid_embeds = faiss.vector_to_array(pq_index.pq.centroids)
+        codebook = centroid_embeds.reshape(pq_index.pq.M, pq_index.pq.ksub, pq_index.pq.dsub)
+        return codebook

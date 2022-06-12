@@ -51,14 +51,14 @@ class Quantization(nn.Module):
             vt = faiss.downcast_VectorTransform(index.chain.at(0))
             assert isinstance(vt, faiss.LinearTransform)
             rotate = faiss.vector_to_array(vt.A).reshape(vt.d_out, vt.d_in)
-            ivf_index = faiss.downcast_index(index.index)
+            pq_index = faiss.downcast_index(index.index)
         else:
-            ivf_index = index
+            pq_index = index
             rotate = None
 
-        centroid_embeds = faiss.vector_to_array(ivf_index.pq.centroids)
-        codebook = centroid_embeds.reshape(ivf_index.pq.M, ivf_index.pq.ksub, ivf_index.pq.dsub)
-        subvector_num = ivf_index.pq.M
+        centroid_embeds = faiss.vector_to_array(pq_index.pq.centroids)
+        codebook = centroid_embeds.reshape(pq_index.pq.M, pq_index.pq.ksub, pq_index.pq.dsub)
+        subvector_num = pq_index.pq.M
 
         pq = cls(subvector_num=subvector_num, rotate=rotate, codebook=codebook)
         return pq
