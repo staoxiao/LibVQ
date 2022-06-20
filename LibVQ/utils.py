@@ -3,6 +3,7 @@ import os
 import random
 import struct
 import sys
+from typing import Dict, List
 
 import faiss
 import numpy as np
@@ -72,3 +73,48 @@ def save_to_STAG_binart_file(index: FaissIndex,
     with open(os.path.join(save_dir, 'quantized_vectors.bin'), 'wb') as f:
         f.write(struct.pack('ii', codes.shape[0], codes.shape[1]))
         f.write(codes.tobytes())
+
+
+def evaluate(retrieve_results: List[List[int]],
+             ground_truths: Dict[int, List[int]],
+             MRR_cutoffs: List[int] = [10],
+             Recall_cutoffs: List[int] = [5, 10, 50],
+             qids: List[int] = None):
+    """
+    calculate MRR and Recall
+    """
+    MRR = [0.0] * len(MRR_cutoffs)
+    Recall = [0.0] * len(Recall_cutoffs)
+    ranking = []
+    if qids is None:
+        qids = list(range(len(retrieve_results)))
+    for qid, candidate_pid in zip(qids, retrieve_results):
+        if qid in ground_truths:
+            target_pid = ground_truths[qid]
+            ranking.append(-1)
+
+            for i in range(0, max(MRR_cutoffs)):
+                if candidate_pid[i] in target_pid:
+                    ranking.pop()
+                    ranking.append(i + 1)
+                    for inx, cutoff in enumerate(MRR_cutoffs):
+                        if i <= cutoff - 1:
+                            MRR[inx] += 1 / (i + 1)
+                    break
+
+            for i, k in enumerate(Recall_cutoffs):
+                Recall[i] += (len(set.intersection(set(target_pid), set(candidate_pid[:k]))) / len(set(target_pid)))
+
+    if len(ranking) == 0:
+        raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
+
+    print(f"{len(ranking)} matching queries found")
+    MRR = [x / len(ranking) for x in MRR]
+    for i, k in enumerate(MRR_cutoffs):
+        print(f'MRR@{k}:{MRR[i]}')
+
+    Recall = [x / len(ranking) for x in Recall]
+    for i, k in enumerate(Recall_cutoffs):
+        print(f'Recall@{k}:{Recall[i]}')
+
+    return MRR, Recall
