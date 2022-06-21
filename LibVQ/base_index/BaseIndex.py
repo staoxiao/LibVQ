@@ -5,7 +5,6 @@ import numpy
 
 from LibVQ.utils import evaluate
 
-
 class IndexConfig():
     def __init__(self,
                  index_method: str = 'ivfopq',

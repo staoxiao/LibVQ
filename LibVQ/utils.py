@@ -10,8 +10,6 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
-from LibVQ.base_index import FaissIndex
-
 
 def is_main_process(local_rank):
     return local_rank in [-1, 0]
@@ -54,10 +52,10 @@ def dist_gather_tensor(vecs, world_size, local_rank=0, detach=True):
     return all_tensors
 
 
-def save_to_STAG_binart_file(index: FaissIndex,
+def save_to_SPTAG_binary_file(index,
                              save_dir: str):
     # The function only supports OPQ currently.
-    rotate_matrix = index.get_rotate_matrix()
+    rotate_matrix = index.get_rotate_matrix().T
     codebooks = index.get_codebook()
     with open(os.path.join(save_dir, 'index_parameters.bin'), 'wb') as f:
         f.write(struct.pack('B', 2))
