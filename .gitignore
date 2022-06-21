@@ -127,7 +127,6 @@ venv.bak/
 dmypy.json
 _hang.py
 try.py
-./examples/SPTAG_Backbone/test.py
 
 # Pyre type checker
 .pyre/
