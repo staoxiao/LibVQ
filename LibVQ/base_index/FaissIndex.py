@@ -45,13 +45,13 @@ class FaissIndex(BaseIndex):
             self.index = faiss.IndexIVFFlat(quantizer, emb_size, ivf_centers_num, self.index_metric)
         elif index_method == 'ivf_opq':
             self.index = faiss.index_factory(emb_size,
-                                             f"OPQ{subvector_num}, IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}",
+                                             f"OPQ{subvector_num},IVF{ivf_centers_num},PQ{subvector_num}x{subvector_bits}",
                                              self.index_metric)
         elif index_method == 'ivf_pq':
-            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num}, PQ{subvector_num}x{subvector_bits}",
+            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num},PQ{subvector_num}x{subvector_bits}",
                                              self.index_metric)
         elif index_method == 'opq':
-            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num}, PQ{subvector_num}x{subvector_bits}",
+            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num},PQ{subvector_num}x{subvector_bits}",
                                              self.index_metric)
         elif index_method == 'pq':
             self.index = faiss.index_factory(emb_size, f"PQ{subvector_num}x{subvector_bits}", self.index_metric)
