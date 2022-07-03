@@ -1,11 +1,11 @@
 import math
 import time
+from typing import Dict, List
 
 import faiss
 import numpy
 import numpy as np
 from tqdm import tqdm
-from typing import Dict, List
 
 from LibVQ.base_index import BaseIndex
 

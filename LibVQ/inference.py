@@ -96,3 +96,46 @@ def inference(data_dir: str,
                              dataparallel=dataparallel,
                              return_vecs=return_vecs,
                              save_to_memmap=save_to_memmap)
+
+def get_embeddings(data_dir: str,
+                   encoder: Encoder,
+                   max_doc_length: int,
+                   max_query_length: int,
+                   output_dir: str = None,
+                   batch_size: int = 2048,
+                    ):
+    print('start to generate embeddings for corpus')
+    doc_vecs = inference(data_dir=data_dir,
+                         is_query=False,
+                         encoder=encoder,
+                         prefix='docs',
+                         max_length=max_doc_length,
+                         output_dir=output_dir,
+                         batch_size=batch_size,
+                         return_vecs=True)
+
+    print('start to generate embeddings for dev queries')
+    dev_query = inference(data_dir=data_dir,
+                          is_query=True,
+                          encoder=encoder,
+                          prefix='dev-queries',
+                          max_length=max_query_length,
+                          output_dir=output_dir,
+                          batch_size=batch_size,
+                          return_vecs=True)
+
+    print('start to generate embeddings for train queries')
+    train_query = inference(data_dir=data_dir,
+                            is_query=True,
+                            encoder=encoder,
+                            prefix='train-queries',
+                            max_length=max_query_length,
+                            output_dir=output_dir,
+                            batch_size=batch_size,
+                            return_vecs=True)
+
+    return doc_vecs, dev_query, train_query
+
+
+
+

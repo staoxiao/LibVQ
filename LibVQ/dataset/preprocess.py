@@ -1,15 +1,21 @@
+import gc
 import json
 import multiprocessing as mp
 import os
 import pickle
 from typing import Dict
 
+import faiss
 import numpy as np
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizer
+
+from LibVQ.base_index import FaissIndex
+from LibVQ.dataset import write_rel
 
 tokenizer = None
 max_seq_length = None
+add_special_tokens = True
 
 
 def count_line(path: str):
@@ -35,7 +41,6 @@ class MpTokenizer:
                  input_file: str,
                  output_file: str,
                  max_length: int,
-                 tokenizer_name: str,
                  func,
                  workers_num=None,
                  initializer=None,
@@ -45,9 +50,6 @@ class MpTokenizer:
 
         global max_seq_length
         max_seq_length = max_length
-
-        global tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
         id2offset = {}
         token_array = np.memmap(output_file + ".memmap", shape=(total_line_num, max_seq_length), mode='w+',
@@ -79,11 +81,14 @@ class MpTokenizer:
 
 def job(line):
     line = line.split('\t')
-    id, text = int(line[0]), '[SEP]'.join(line[1:])
+    if hasattr(tokenizer, 'sep_token'):
+        id, text = int(line[0]), f' {tokenizer.sep_token} '.join(line[1:])
+    else:
+        id, text = int(line[0]), ' '.join(line[1:])
 
     tokens = tokenizer.encode(
         text,
-        add_special_tokens=True,
+        add_special_tokens=add_special_tokens,
         max_length=max_seq_length,
         truncation=True
     )
@@ -99,13 +104,11 @@ def init():
 
 def tokenize_data(input_file: str,
                   output_file: str,
-                  tokenizer_name: str,
                   max_length: int,
                   workers_num: int = None):
     id2offset = MpTokenizer()(input_file,
                               output_file,
                               max_length,
-                              tokenizer_name,
                               job,
                               workers_num=workers_num)
     return id2offset
@@ -124,16 +127,21 @@ def offset_rel(rel_file: str,
 
 def preprocess_data(data_dir: str,
                     output_dir: str,
-                    tokenizer_name: str,
+                    text_tokenizer: PreTrainedTokenizer,
                     max_doc_length: int,
                     max_query_length: int,
+                    add_cls_tokens: bool = True,
                     workers_num: int = None
                     ):
     os.makedirs(output_dir, exist_ok=True)
 
+    global tokenizer, add_special_tokens
+    tokenizer = text_tokenizer
+    add_special_tokens = add_cls_tokens
+
     docs_file = os.path.join(data_dir, 'collection.tsv')
     output_docs_file = os.path.join(output_dir, 'docs')
-    did2offset = tokenize_data(docs_file, output_docs_file, workers_num=workers_num, tokenizer_name=tokenizer_name,
+    did2offset = tokenize_data(docs_file, output_docs_file, workers_num=workers_num,
                                max_length=max_doc_length)
 
     for file in os.listdir(data_dir):
@@ -147,10 +155,47 @@ def preprocess_data(data_dir: str,
 
             output_query_file = os.path.join(output_dir, f'{prefix}-queries')
             qid2offset = tokenize_data(query_file, output_query_file, workers_num=workers_num,
-                                       tokenizer_name=tokenizer_name, max_length=max_query_length)
+                                       max_length=max_query_length)
 
             output_offset_rel = os.path.join(output_dir, f'{prefix}-rels.tsv')
             offset_rel(rel_file=rel_file,
                        output_offset_rel=output_offset_rel,
                        qid2offset=qid2offset,
                        did2offset=did2offset)
+
+
+
+
+def generate_virtual_traindata(
+        doc_embeddings,
+        train_query,
+        output_dir: str,
+        use_gpu: bool,
+        topk: int = 400,
+        index_method: str = 'flat',
+        ivf_centers_num=-1,
+        subvector_num=-1,
+        subvector_bits=8,
+        dist_mode='ip'):
+    faiss.omp_set_num_threads(32)
+    index = FaissIndex(index_method=index_method,
+                       emb_size=len(doc_embeddings[0]),
+                       ivf_centers_num=ivf_centers_num,
+                       subvector_num=subvector_num,
+                       subvector_bits=subvector_bits,
+                       dist_mode=dist_mode,
+                       doc_embeddings=doc_embeddings)
+
+    if use_gpu:
+        faiss.index_cpu_to_all_gpus(index.index)
+
+    query2pos, query2neg = index.generate_virtual_traindata(train_query,
+                                                            topk=topk,
+                                                            batch_size=64
+                                                            )
+
+    write_rel(os.path.join(output_dir, 'train-virtual_rel.tsv'), query2pos)
+    pickle.dump(query2neg, open(os.path.join(output_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
+
+    del query2neg, query2pos
+    gc.collect()

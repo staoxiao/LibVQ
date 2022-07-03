@@ -66,7 +66,8 @@ For example:
 from LibVQ.dataset.preprocess import preprocess_data
 preprocess_data(data_dir={path to dataset},
                 output_dir={path to preprocess_dir},
-                tokenizer_name='bert-base-uncased',
+                text_tokenizer=AutoTokenizer.from_pretrained('bert-base-uncased'),
+                add_cls_tokens=True,
                 max_doc_length=32,
                 max_query_length=256,
                 workers_num=64)

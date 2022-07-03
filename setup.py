@@ -5,7 +5,7 @@ with open("README.md", mode="r", encoding="utf-8") as readme_file:
 
 setup(
     name="LibVQ",
-    version="0.0.2",
+    version="0.0.3",
     author="Shitao Xiao, Zheng Liu, Yingxia Shao",
     author_email="stxiao@bupt.edu.cn",
     description="A Library For Dense Retrieval Oriented Vector Quantization",

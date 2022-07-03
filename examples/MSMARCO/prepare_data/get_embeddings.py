@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import torch
-from transformers import HfArgumentParser, AutoModel, AutoConfig
+from transformers import HfArgumentParser, AutoModel, AutoConfig, AutoTokenizer
 
 from LibVQ.dataset.preprocess import preprocess_data
 from LibVQ.inference import inference
@@ -36,10 +36,12 @@ if __name__ == '__main__':
     os.makedirs(data_args.output_dir, exist_ok=True)
 
     # preprocess
+    text_tokenizer = AutoTokenizer.from_pretrained(data_args.tokenizer_name)
     if not os.path.exists(data_args.preprocess_dir):
         preprocess_data(data_dir=data_args.data_dir,
                         output_dir=data_args.preprocess_dir,
-                        tokenizer_name=data_args.tokenizer_name,
+                        text_tokenizer=text_tokenizer,
+                        add_cls_tokens=True,
                         max_doc_length=data_args.max_doc_length,
                         max_query_length=data_args.max_query_length,
                         workers_num=64)
