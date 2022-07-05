@@ -63,10 +63,10 @@ class LearnableVQ(nn.Module):
 
         if dist_mode == 'ip':
             score = self.inner_product(query_vecs, doc_vecs)
-            n_score = self.inner_product(query_vecs, doc_vecs)
+            n_score = self.inner_product(query_vecs, neg_vecs)
         elif dist_mode == 'l2':
             score = - self.euclidean_distance(query_vecs, doc_vecs)
-            n_score = - self.euclidean_distance(query_vecs, doc_vecs)
+            n_score = - self.euclidean_distance(query_vecs, neg_vecs)
         else:
             raise ValueError("The dist_mode must be ip or l2")
         score = torch.cat([score, n_score], dim=-1)
