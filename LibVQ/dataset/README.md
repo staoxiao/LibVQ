@@ -24,7 +24,7 @@ They also can be saved as `.npy` or `.memmap` file by `numpy`, then input the fi
 
 For training the index, the relevance relationship between query and doc should be provided. 
 The format of rel_data should be: `{query_id: [doc1_id, doc2_id,...]`, and you can save it as a pickle file.
-If there is no relevance lable, you can create a flat index and generate the relevance label by 
+If there is no relevance label, you can create a flat index and generate the relevance label by 
 searching the nearest docs:
 ```python
 from LibVQ.baseindex import FaissIndex
