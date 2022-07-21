@@ -150,18 +150,19 @@ def preprocess_data(data_dir: str,
             query_file = os.path.join(data_dir, file)
             rel_file = os.path.join(data_dir, f'{prefix}-rels.tsv')
             if not os.path.exists(rel_file):
-                print(f'There is no {rel_file} for {query_file}')
-                raise
+                print(f'There is no {rel_file} for {query_file}. You should provide it or generate it by generate_virtual_traindata() based on embeddings')
+                # raise
 
             output_query_file = os.path.join(output_dir, f'{prefix}-queries')
             qid2offset = tokenize_data(query_file, output_query_file, workers_num=workers_num,
                                        max_length=max_query_length)
 
-            output_offset_rel = os.path.join(output_dir, f'{prefix}-rels.tsv')
-            offset_rel(rel_file=rel_file,
-                       output_offset_rel=output_offset_rel,
-                       qid2offset=qid2offset,
-                       did2offset=did2offset)
+            if os.path.exists(rel_file):
+                output_offset_rel = os.path.join(output_dir, f'{prefix}-rels.tsv')
+                offset_rel(rel_file=rel_file,
+                           output_offset_rel=output_offset_rel,
+                           qid2offset=qid2offset,
+                           did2offset=did2offset)
 
 
 

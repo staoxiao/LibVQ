@@ -14,10 +14,6 @@ Vector quantization (VQ) is widely applied to many ANN libraries, like [FAISS](h
 
 
 ## Install
-- From PyPI
-```
-pip install LibVQ
-```
 
 - From source
 ```
