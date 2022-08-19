@@ -258,7 +258,7 @@ class LearnableIndex(FaissIndex):
             # generate train data
             logging.info("generating relevance data...")
             rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=self.learnable_vq.ivf.ivf_centers_num)
+                                                                 nprobe=-1)
 
         train_model(model=self.learnable_vq,
                     rel_data=rel_data,
@@ -362,7 +362,7 @@ class LearnableIndex(FaissIndex):
             logging.info("generating relevance data...")
             query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
             rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=self.learnable_vq.ivf.ivf_centers_num)
+                                                                 nprobe=-1)
 
             logging.info(f"saving relevance data to {checkpoint_path}...")
             rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')

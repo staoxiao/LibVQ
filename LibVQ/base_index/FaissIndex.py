@@ -107,6 +107,8 @@ class FaissIndex(BaseIndex):
                batch_size: int = 64):
         if nprobe is not None:
             self.set_nprobe(nprobe)
+        if nprobe == -1:
+            self.set_nprobe(self.ivf_centers_num)
 
         start_time = time.time()
         if batch_size:
