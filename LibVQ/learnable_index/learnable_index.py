@@ -80,6 +80,8 @@ class LearnableIndex(FaissIndex):
 
         self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file,
                                     index_method)
+        if self.learnable_vq.ivf:
+            self.ivf_centers_num = self.learnable_vq.ivf.ivf_centers_num
 
     def check_index_parameters(self,
                                vq_model: LearnableVQ,
