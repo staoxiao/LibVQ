@@ -24,7 +24,8 @@ class TransformerModel(nn.Module):
 class Encoder(nn.Module):
     def __init__(self,
                  query_encoder=None,
-                 doc_encoder=None):
+                 doc_encoder=None,
+                 ):
         super(Encoder, self).__init__()
         self.query_encoder = query_encoder
         self.doc_encoder = doc_encoder
