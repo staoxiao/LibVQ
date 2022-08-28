@@ -16,7 +16,7 @@ def search(queries, index, id2text):
     input_data = tokenizer(queries)
     input_ids = torch.LongTensor(input_data['input_ids'])
     attention_mask = torch.LongTensor(input_data['attention_mask'])
-    query_embeddings = text_encoder.query_emb(input_ids, attention_mask)
+    query_embeddings = text_encoder.query_emb(input_ids, attention_mask).detach()
     _, topk_ids = index.search(query_embeddings)
     output_texts = []
     for ids in topk_ids:
@@ -26,5 +26,6 @@ def search(queries, index, id2text):
         output_texts.append(temp)
     return output_texts
 
-
-search(['what is apple', 'how much is....jjoi'], FaissIndex(index_type='').load_index(index_file), {0:"fajdofj", 1:"hfado"})
+index = FaissIndex(index_type='')
+index.load_index(index_file)
+search(['what is apple', 'how much is....'], index, {0:"fajdofj", 1:"hfado"})

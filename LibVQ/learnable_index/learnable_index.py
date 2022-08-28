@@ -82,6 +82,8 @@ class LearnableIndex(FaissIndex):
                                     index_method)
         if self.learnable_vq.ivf:
             self.ivf_centers_num = self.learnable_vq.ivf.ivf_centers_num
+        else:
+            self.ivf_centers_num = None
 
     def check_index_parameters(self,
                                vq_model: LearnableVQ,
@@ -259,8 +261,7 @@ class LearnableIndex(FaissIndex):
         if rel_data is None:
             # generate train data
             logging.info("generating relevance data...")
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=-1)
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.ivf_centers_num)
 
         train_model(model=self.learnable_vq,
                     rel_data=rel_data,
@@ -363,8 +364,7 @@ class LearnableIndex(FaissIndex):
             # generate train data
             logging.info("generating relevance data...")
             query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=-1)
+            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.ivf_centers_num)
 
             logging.info(f"saving relevance data to {checkpoint_path}...")
             rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')

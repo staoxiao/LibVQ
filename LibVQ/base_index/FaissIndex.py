@@ -93,6 +93,7 @@ class FaissIndex(BaseIndex):
     def GPU_to_CPU(self):
         self.index = faiss.index_gpu_to_cpu(self.index)
 
+
     def set_nprobe(self, nprobe):
         if isinstance(self.index, faiss.IndexPreTransform):
             ivf_index = faiss.downcast_index(self.index.index)
@@ -107,8 +108,6 @@ class FaissIndex(BaseIndex):
                batch_size: int = 64):
         if nprobe is not None:
             self.set_nprobe(nprobe)
-        if nprobe == -1:
-            self.set_nprobe(self.ivf_centers_num)
 
         start_time = time.time()
         if batch_size:

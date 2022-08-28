@@ -178,7 +178,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
             # generate train data
             logging.info("generating relevance data...")
             rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=-1)
+                                                                 nprobe=self.ivf_centers_num)
 
         train_model(model=self.learnable_vq,
                     rel_data=rel_data,
@@ -312,7 +312,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
             query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
             doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
             rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400,
-                                                                 nprobe=-1)
+                                                                 nprobe=self.ivf_centers_num)
 
             logging.info(f"saving relevance data to {checkpoint_path}...")
             rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')
