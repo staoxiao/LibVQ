@@ -15,75 +15,100 @@ from transformers import AdamW
 
 from LibVQ.base_index import FaissIndex, IndexConfig
 from LibVQ.dataset import write_rel
-from LibVQ.models import LearnableVQ
+from LibVQ.models import LearnableVQ, Model, EncoderConfig
 from LibVQ.train import train_model
+from LibVQ.dataset import Datasets
 
 
 class LearnableIndex(FaissIndex):
     def __init__(self,
-                 index_method: str,
+                 index_config: IndexConfig = None,
+                 encoder_config: EncoderConfig = None,
                  init_index_file: str = None,
-                 init_index_type: str = 'faiss',
-                 ivf_centers_num: int = 10000,
-                 subvector_num: int = 32,
-                 subvector_bits: int = 8,
-                 dist_mode: str = 'ip',
-                 doc_embeddings: np.ndarray = None,
-                 emb_size: int = 768,
-                 config: IndexConfig = None
                  ):
         """
         finetune the index
 
-        :param index_method: The type of index, e.g., ivf_pq, ivf_opq, pq, opq
+        :param index_config: Config of index. Default is None.
+        :param encoder_config: Config of Encoder. Default is None.
         :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it
-        :param ivf_centers_num: The number of post lists
-        :param subvector_num: The number of codebooks
-        :param subvector_bits: The number of codewords for each codebook
-        :param dist_mode: Metric to calculate the distance between query and doc
-        :param doc_embeddings: Embeddings of docs, needed when there is no a trained index in init_index_file
-        :param emb_size: Dim of embeddings
-        :param config: Config of index. Default is None.
         """
         super(LearnableIndex).__init__()
+        assert index_config is not None
+        self.index_config = index_config
+        self.encoder_config = encoder_config
+        self.init_index_file = init_index_file
 
         if init_index_file is None or not os.path.exists(init_index_file):
+            self.is_trained = False
             logging.info(f"generating the init index by faiss")
-            faiss_index = FaissIndex(doc_embeddings=doc_embeddings,
-                                    emb_size=emb_size,
-                                    ivf_centers_num=ivf_centers_num,
-                                    subvector_num=subvector_num,
-                                    subvector_bits=subvector_bits,
-                                    index_method=index_method,
-                                    dist_mode=dist_mode)
-
-            if init_index_file is None:
-                init_index_file = f'./temp/{index_method}_ivf{ivf_centers_num}_pq{subvector_num}x{subvector_bits}.index'
-                os.makedirs('./temp', exist_ok=True)
-            logging.info(f"save the init index to {init_index_file}")
-            faiss_index.save_index(init_index_file)
+            faiss_index = FaissIndex(emb_size=index_config.emb_size,
+                                    ivf_centers_num=index_config.ivf_centers_num,
+                                    subvector_num=index_config.subvector_num,
+                                    subvector_bits=index_config.subvector_bits,
+                                    index_method=index_config.index_method,
+                                    dist_mode=index_config.dist_mode)
+            self.faiss = faiss_index
             self.index = faiss_index.index
-            self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file,
-                                            index_method=index_method, dist_mode=dist_mode)
         else:
-            if init_index_type == 'SPANN':
+            self.is_trained = True
+            if index_config.index_backend == 'SPANN':
                 logging.info(f"loading the init SPANN index from {init_index_file}")
                 self.index = None
-                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file, init_index_type='SPANN',
-                                                index_method=index_method, dist_mode=dist_mode)
+                self.learnable_vq = LearnableVQ(index_config, init_index_file=init_index_file, init_index_type='SPANN',
+                                                index_method=index_config.index_method, dist_mode=index_config.dist_mode)
             else:
                 logging.info(f"loading the init faiss index from {init_index_file}")
                 self.index = faiss.read_index(init_index_file)
 
-                self.learnable_vq = LearnableVQ(config, init_index_file=init_index_file,
-                                                index_method=index_method, dist_mode=dist_mode)
+                self.learnable_vq = LearnableVQ(index_config, init_index_file=init_index_file,
+                                                index_method=index_config.index_method, dist_mode=index_config.dist_mode)
 
-        self.check_index_parameters(self.learnable_vq, ivf_centers_num, subvector_num, subvector_bits, init_index_file,
-                                    index_method)
-        if self.learnable_vq.ivf:
-            self.ivf_centers_num = self.learnable_vq.ivf.ivf_centers_num
-        else:
-            self.ivf_centers_num = None
+            self.check_index_parameters(self.learnable_vq, index_config.ivf_centers_num, index_config.subvector_num,
+                                        index_config.subvector_bits, init_index_file,
+                                        index_config.index_method)
+            if self.learnable_vq.ivf:
+                self.ivf_centers_num = self.learnable_vq.ivf.ivf_centers_num
+            else:
+                self.ivf_centers_num = None
+
+        if encoder_config is not None and encoder_config.query_encoder_name_or_path is not None and encoder_config.doc_encoder_name_or_path is not None:
+            self.model = Model(encoder_config.query_encoder_name_or_path,
+                               encoder_config.doc_encoder_name_or_path,
+                               index_config.emb_size)
+
+
+    def faiss_train(self, data:Datasets = None):
+        if self.is_trained is False:
+            doc_embeddings = np.memmap(data.doc_embeddings_dir,
+                                       dtype=np.float32, mode="r")
+            doc_embeddings = doc_embeddings.reshape(-1, data.emb_size)
+            self.faiss.fit(doc_embeddings)
+            self.faiss.add(doc_embeddings)
+            self.is_trained = True
+
+            if self.init_index_file is None:
+                init_index_file = f'./temp/{self.index_config.index_method}_ivf{self.index_config.ivf_centers_num}_pq{self.index_config.subvector_num}x{self.index_config.subvector_bits}.index'
+                os.makedirs('./temp', exist_ok=True)
+
+            logging.info(f"save the init index to {init_index_file}")
+            self.faiss.save_index(init_index_file)
+            self.index = self.faiss.index
+            # del self.faiss
+            self.learnable_vq = LearnableVQ(self.index_config, init_index_file=init_index_file,
+                                            index_method=self.index_config.index_method, dist_mode=self.index_config.dist_mode)
+
+            self.check_index_parameters(self.learnable_vq, self.index_config.ivf_centers_num, self.index_config.subvector_num,
+                                        self.index_config.subvector_bits, init_index_file,
+                                        self.index_config.index_method)
+
+            if self.learnable_vq.ivf:
+                self.ivf_centers_num = self.learnable_vq.ivf.ivf_centers_num
+            else:
+                self.ivf_centers_num = None
+
+            if self.model:
+                self.learnable_vq.encoder = self.model.encoder
 
     def check_index_parameters(self,
                                vq_model: LearnableVQ,
@@ -199,6 +224,20 @@ class LearnableIndex(FaissIndex):
         else:
             return emb
 
+    def train(self,
+              data: Datasets = None,
+              per_query_neg_num: int = 1,
+              save_ckpt_dir: str = None,
+              logging_steps: int = 100,
+              per_device_train_batch_size: int = 512,
+              loss_weight: Dict[str, object] = {'encoder_weight': 0.0, 'pq_weight': 1.0,
+                                                'ivf_weight': 'scaled_to_pqloss'},
+              lr_params: Dict[str, object] = {'encoder_lr': 0.0, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
+              epoch: int = 30
+              ):
+        raise NotImplementedError
+
+
     def fit(self,
             query_embeddings: Union[str, numpy.ndarray],
             doc_embeddings: Union[str, numpy.ndarray],
@@ -238,7 +277,7 @@ class LearnableIndex(FaissIndex):
         :param warmup_steps_ratio: The ration of warmup steps
         :param optimizer_class: torch.optim.Optimizer
         :param lr_params: Learning rate for encoder, ivf, and pq
-        :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
+        :param loss_weight: Weight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
         :param temperature: Temperature for softmax
         :param loss_method: We provide two loss: 'contrastive' and 'distill'
         :param weight_decay: Hyper-parameter for Optimizer
@@ -295,6 +334,7 @@ class LearnableIndex(FaissIndex):
         # delete temp folder
         if temp_checkpoint_path is not None:
             shutil.rmtree(temp_checkpoint_path)
+
 
     def fit_with_multi_gpus(
             self,
@@ -414,3 +454,22 @@ class LearnableIndex(FaissIndex):
         # delete temp folder
         if temp_checkpoint_path is not None:
             shutil.rmtree(temp_checkpoint_path)
+
+    def search_query(self, queries, id2text, kValue: int=20):
+        input_data = self.model.text_tokenizer(queries, padding=True)
+        input_ids = torch.LongTensor(input_data['input_ids'])
+        attention_mask = torch.LongTensor(input_data['attention_mask'])
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
+        self.model.to(device)
+        query_embeddings = self.model.encoder.query_emb(input_ids, attention_mask).detach().to('cpu')
+        _, topk_ids = self.search(query_embeddings, kValue, nprobe=self.index_config.nprobe)
+        output_texts = []
+        for ids in topk_ids:
+            temp = []
+            for id in ids:
+                if id != -1:
+                    temp.append(id2text[id])
+            output_texts.append(temp)
+        return output_texts, topk_ids

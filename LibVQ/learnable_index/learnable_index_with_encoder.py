@@ -10,53 +10,30 @@ import torch
 import torch.multiprocessing as mp
 from torch.optim import AdamW, Optimizer
 
-from LibVQ.base_index import IndexConfig
 from LibVQ.dataset import write_rel
 from LibVQ.inference import inference
 from LibVQ.learnable_index import LearnableIndex
-from LibVQ.models import Encoder
+from LibVQ.base_index import IndexConfig
+from LibVQ.models import EncoderConfig
 from LibVQ.train import train_model
 
 
 class LearnableIndexWithEncoder(LearnableIndex):
     def __init__(self,
-                 index_method: str,
-                 encoder: Encoder,
-                 init_index_file: str = None,
-                 init_index_type: str = 'faiss',
-                 emb_size: int = 768,
-                 ivf_centers_num: int = 10000,
-                 subvector_num: int = 32,
-                 subvector_bits: int = 8,
-                 dist_mode: str = 'ip',
-                 doc_embeddings: np.ndarray = None,
-                 config: IndexConfig = None
+                 index_config: IndexConfig = None,
+                 encoder_config: EncoderConfig = None,
+                 init_index_file: str = None
                  ):
         """
-        finetune the index and encoder
+        finetune the distill index
 
-        :param index_method: The type of index, e.g., ivf_pq, ivf_opq, pq, opq
-        :param encoder: The encoder for query and doc
+        :param index_config: Config of index. Default is None.
+        :param encoder_config: Config of Encoder. Default is None.
         :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it
-        :param emb_size: Dim of embeddings
-        :param ivf_centers_num: The number of post lists
-        :param subvector_num: The number of codebooks
-        :param subvector_bits: The number of codewords for each codebook
-        :param dist_mode: Metric to calculate the distance between query and doc
-        :param doc_embeddings: Embeddings of docs, needed when there is no a trained index in init_index_file
-        :param config: Config of index. Default is None.
         """
-        LearnableIndex.__init__(self, index_method,
-                                init_index_file,
-                                init_index_type,
-                                ivf_centers_num,
-                                subvector_num,
-                                subvector_bits,
-                                dist_mode,
-                                doc_embeddings,
-                                emb_size,
-                                config)
-        self.learnable_vq.encoder = encoder
+        LearnableIndex.__init__(self, index_config,
+                                encoder_config,
+                                init_index_file)
 
     def update_encoder(self,
                        encoder_file: str = None,

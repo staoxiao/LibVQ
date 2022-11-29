@@ -1,4 +1,4 @@
-# [LearnableIndex](../LibVQ/learnable_index/learnable_index.py)
+# [LearnableIndex](../LibVQ/learnable_index/learnable_index_copy.py)
 ```python
 from LibVQ.learnable_index import LearnableIndex
 ```

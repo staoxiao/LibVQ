@@ -213,4 +213,4 @@ class LearnableVQ(nn.Module):
         if self.pq is not None: self.pq.save(save_path)
         if self.encoder is not None: self.encoder.save(os.path.join(save_path, 'encoder.bin'))
         if self.ivf is not None: self.ivf.save(os.path.join(save_path, 'ivf_centers'))
-        if self.config is not None: self.config.to_json_file(os.path.join(save_path, 'config.json'))
+        if self.config is not None: self.config.save(os.path.join(save_path, 'config.json'))

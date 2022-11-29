@@ -122,7 +122,6 @@ class DatasetForVQ(Dataset):
     def __len__(self):
         return len(self.query2pos)
 
-
 class DataCollatorForVQ():
     def __call__(self, examples):
         query_token_ids, query_attention_mask = [], []
@@ -251,3 +250,70 @@ def write_rel(rel_file, reldict):
         for q, ds in reldict.items():
             for d in ds:
                 f.write(str(q) + '\t' + str(d) + '\n')
+
+class Datasets():
+    def __init__(self, file_type, file_path, emb_size: int = None, max_doc_length: int = 256, max_query_length: int = 32,
+                 preprocess_dir: str = None, embedding_dir: str = None):
+        if file_type not in ['text2text', 'text2img', 'img2img']:
+            raise ValueError("your file_type must in 'text2text, text2img, img2img'")
+        self.file_type = file_type
+        self.file_path = file_path
+        self.emb_size = emb_size
+        self.max_doc_length = max_doc_length
+        self.max_query_length = max_query_length
+        self.preprocess_dir = os.path.join(file_path, 'preprecessed_dataset') if preprocess_dir is None else preprocess_dir
+        self.embedding_dir = os.path.join(file_path, 'embedding') if embedding_dir is None else embedding_dir
+
+        if file_path in ['MSMARCO']:
+            if not os.path.exists(file_path):
+                raise ValueError("Please read example/MSMARCO/REARME.md to prepare the dataset MSMARCO")
+
+        dirs = os.listdir(file_path)
+        self.docs_path = os.path.join(file_path, 'collection.tsv') if 'collection.tsv' in dirs else None
+        self.train_queries_path = os.path.join(file_path, 'train-queries.tsv') if 'train-queries.tsv' in dirs else None
+        self.train_rels_path = os.path.join(file_path, 'train-rels.tsv') if 'train-rels.tsv' in dirs else None
+        self.dev_queries_path = os.path.join(file_path, 'dev-queries.tsv') if 'dev-queries.tsv' in dirs else None
+        self.dev_rels_path = os.path.join(file_path, 'dev-rels.tsv') if 'dev-rels.tsv' in dirs else None
+        self.doc_embeddings_dir = os.path.join(os.path.join(file_path, 'docs.memmap')) if 'docs.memmap' in dirs else None
+        self.train_queries_embedding_dir = os.path.join(os.path.join(file_path, 'train-queries.memmap')) if 'train-queries.memmap' in dirs else None
+        self.dev_queries_embedding_dir = os.path.join(os.path.join(file_path, 'dev-queries.memmap')) if 'dev-queries.memmap' in dirs else None
+        self.emb_size = emb_size
+
+        if self.docs_path is None and self.doc_embeddings_dir is None:
+            raise ValueError("you must have at least one doc file 'collection.tsv' or 'docs.memmap'")
+
+        self.generate_query()
+
+    def generate_query(self):
+        if self.train_queries_embedding_dir is None and self.doc_embeddings_dir is not None:
+            docs_embedding = np.memmap(self.doc_embeddings_dir,
+                                       dtype=np.float32, mode="r")
+            docs_embedding = docs_embedding.reshape(-1, self.emb_size)
+            count = len(docs_embedding)
+            needNum = np.random.randint(count, size=count // 1000)
+            needNum = np.unique(needNum)
+            temp_train = docs_embedding[needNum]
+            size = len(temp_train) * self.emb_size
+            temp_train = temp_train.reshape(size, )
+            self.train_queries_embedding_dir = os.path.join(os.path.join(self.file_path, 'train-queries.memmap'))
+            train_queries_embedding = np.memmap(self.train_queries_embedding_dir,
+                                    dtype=np.float32, mode='w+', shape=(size,))
+            train_queries_embedding[:] = temp_train[:]
+        elif self.train_queries_path is None:
+            self.train_queries_path = os.path.join(self.file_path, 'train-queries.tsv')
+            docs = open(self.docs_path, 'r')
+            query = open(self.train_queries_path, 'w+')
+            for count, line in enumerate(docs):
+                count += 1
+            docs.close()
+
+            needNum = np.random.randint(count, size=count // 1000)
+            needNum = np.unique(needNum)
+            docs = open(self.docs_path, 'r')
+            for count, line in enumerate(docs):
+                count += 1
+                if needNum.__contains__(count):
+                    query.write(line)
+            docs.close()
+            query.close()
+

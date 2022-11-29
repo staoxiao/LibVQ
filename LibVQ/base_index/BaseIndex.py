@@ -5,30 +5,6 @@ import numpy
 
 from LibVQ.utils import evaluate
 
-class IndexConfig():
-    def __init__(self,
-                 index_method: str = 'ivfopq',
-                 emb_size: int = 768,
-                 ivf_centers_num: int = 10000,
-                 subvector_num: int = 32,
-                 subvector_bits: int = 8,
-                 nprobe: int = 100,
-                 dist_mode: str = 'ip',
-                 **kwargs):
-        self.index_method = index_method
-        self.emb_size = emb_size
-        self.ivf_centers_num = ivf_centers_num
-        self.subvector_num = subvector_num
-        self.subvector_bits = subvector_bits
-        self.nprobe = nprobe
-        self.dist_mode = dist_mode
-
-    @classmethod
-    def from_config_json(cls, config_josn):
-        config_dict = json.load(open(config_josn, 'r'))
-        return cls(**config_dict)
-
-
 class BaseIndex():
     def fit(self):
         raise NotImplementedError

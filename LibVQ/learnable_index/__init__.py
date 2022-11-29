@@ -1,2 +1,7 @@
 from .learnable_index import LearnableIndex
 from .learnable_index_with_encoder import LearnableIndexWithEncoder
+from .learnable_index_distill import DistillLearnableIndex
+from .learnable_index_constrative import ConstrativeLearnableIndex
+from .learnable_index_with_encoder_distill import DistillLearnableIndexWithEncoder
+from .learnable_index_with_encoder_constrative import ConstrativeLearnableIndexWithEncoder
+from .auto_index import AutoIndex
