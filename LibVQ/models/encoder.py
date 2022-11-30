@@ -37,26 +37,26 @@ class Encoder(nn.Module):
         # for last in params:
         #     continue
         # input_size = last.size()[-1]
-        # input_size = query_encoder.encoder.config.hidden_size
-        # self.query_linear = nn.Linear(in_features=input_size, out_features=output_size, bias=True)
+        input_size = query_encoder.encoder.config.hidden_size
+        self.query_linear = nn.Linear(in_features=input_size, out_features=output_size, bias=True)
 
         # params = doc_encoder.parameters()
         # for last in params:
         #     continue
         # input_size = last.size()[-1]
-        # input_size = doc_encoder.encoder.config.hidden_size
-        # self.doc_linear = nn.Linear(in_features=input_size, out_features=output_size, bias=True)
+        input_size = doc_encoder.encoder.config.hidden_size
+        self.doc_linear = nn.Linear(in_features=input_size, out_features=output_size, bias=True)
 
     def query_emb(self, input_ids, attention_mask):
         # print('input_ids is cuda ', input_ids.is_cuda)
         # print('attention_mask is cuda ', attention_mask.is_cuda)
         outputs = self.query_encoder(input_ids=input_ids, attention_mask=attention_mask)
-        # outputs = self.query_linear(outputs)
+        outputs = self.query_linear(outputs)
         return outputs.contiguous()
 
     def doc_emb(self, input_ids, attention_mask):
         outputs = self.doc_encoder(input_ids=input_ids, attention_mask=attention_mask)
-        # outputs = self.doc_linear(outputs)
+        outputs = self.doc_linear(outputs)
         return outputs.contiguous()
 
     def forward(self, input_ids, attention_mask, is_query):

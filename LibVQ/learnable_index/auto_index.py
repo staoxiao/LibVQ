@@ -1,4 +1,4 @@
-from LibVQ.learnable_index import DistillLearnableIndex, DistillLearnableIndexWithEncoder, ConstrativeLearnableIndex, ConstrativeLearnableIndexWithEncoder
+from LibVQ.learnable_index import DistillLearnableIndex, DistillLearnableIndexWithEncoder, ContrastiveLearnableIndex, ContrastiveLearnableIndexWithEncoder
 from LibVQ.base_index import IndexConfig
 from LibVQ.models import EncoderConfig
 from LibVQ.dataset import Datasets
@@ -26,10 +26,10 @@ class AutoIndex():
             else:
                 if data.docs_path is None:
                     print('your index is constrative learnable index')
-                    return ConstrativeLearnableIndex(index_config, encoder_config)
+                    return ContrastiveLearnableIndex(index_config, encoder_config)
                 else:
                     print('your index is constrative learnable index with encoder')
-                    return ConstrativeLearnableIndexWithEncoder(index_config, encoder_config)
+                    return ContrastiveLearnableIndexWithEncoder(index_config, encoder_config)
 
         else:
             print('your index is distill learnable index')
