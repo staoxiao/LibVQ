@@ -1,7 +1,7 @@
 from LibVQ.dataset import Datasets
 from LibVQ.base_index import IndexConfig
 from LibVQ.models import EncoderConfig
-from LibVQ.learnable_index import DistillLearnableIndexWithEncoder
+from LibVQ.learnable_index import ContrastiveLearnableIndexWithEncoder
 from LibVQ.dataset.dataset import load_rel
 import os
 
@@ -10,7 +10,7 @@ data = Datasets('MSMARCO')
 index_config = IndexConfig(index_method='ivf_pq', ivf_centers_num=5000, emb_size=640)
 encoder_config = EncoderConfig(is_finetune=True, doc_encoder_name_or_path='Shitao/msmarco_doc_encoder', query_encoder_name_or_path='Shitao/msmarco_query_encoder')
 
-index = DistillLearnableIndexWithEncoder(index_config, encoder_config)
+index = ContrastiveLearnableIndexWithEncoder(index_config, encoder_config)
 index.train(data)
 
 saved_index_file = os.path.join(data.embedding_dir, 'distillLearnableIndexWithEncoder.index')
@@ -28,4 +28,3 @@ if data.dev_queries_embedding_dir is not None:
 answer, answer_id = index.search_query(['what is paranoid sc', 'what is mean streaming'], data)
 print(answer)
 print(answer_id)
-

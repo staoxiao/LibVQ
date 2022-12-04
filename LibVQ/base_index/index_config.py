@@ -3,7 +3,7 @@ import json
 class IndexConfig():
     def __init__(self,
                  index_backend: str = 'FAISS',
-                 index_method: str = 'ivfopq',
+                 index_method: str = 'ivf_opq',
                  emb_size: int = 768,
                  ivf_centers_num: int = 10000,
                  subvector_num: int = 32,
@@ -13,14 +13,14 @@ class IndexConfig():
                  **kwargs):
         """
 
-        :param index_backend: The library of index, e.g., faiss, SPANN
-        :param index_method: The type of index, e.g., ivf_pq, ivf_opq, pq, opq
-        :param emb_size: Dim of embeddings
-        :param ivf_centers_num: The number of post lists
-        :param subvector_num: The number of codebooks
-        :param subvector_bits: The number of codewords for each codebook
-        :param nprobe: The number of lists returned in retrieval
-        :param dist_mode: Metric to calculate the distance between query and doc
+        :param index_backend: The library of index, including: faiss, SPANN
+        :param index_method: The type of index, including: ivf_pq, ivf_opq, ivf, pq, opq, flat
+        :param emb_size: Dim of embeddings, e.g. 768, 832, 896
+        :param ivf_centers_num: The number of post lists, e.g. 1000, 5000, 10000
+        :param subvector_num: The number of codebooks, e.g. 32, 64
+        :param subvector_bits: The number of codewords for each codebook, e.g. 4, 8, 16
+        :param nprobe: The number of lists returned in retrieval, e.g. 10, 100
+        :param dist_mode: Metric to calculate the distance between query and doc, including: ip, l2
         :param kwargs:
         """
         self.index_backend = index_backend

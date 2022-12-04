@@ -25,10 +25,10 @@ class AutoIndex():
                     return DistillLearnableIndexWithEncoder(index_config, encoder_config)
             else:
                 if data.docs_path is None:
-                    print('your index is constrative learnable index')
+                    print('your index is contrastive learnable index')
                     return ContrastiveLearnableIndex(index_config, encoder_config)
                 else:
-                    print('your index is constrative learnable index with encoder')
+                    print('your index is contrastive learnable index with encoder')
                     return ContrastiveLearnableIndexWithEncoder(index_config, encoder_config)
 
         else:

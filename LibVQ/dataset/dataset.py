@@ -252,11 +252,20 @@ def write_rel(rel_file, reldict):
                 f.write(str(q) + '\t' + str(d) + '\n')
 
 class Datasets():
-    def __init__(self, file_type, file_path, emb_size: int = None, max_doc_length: int = 256, max_query_length: int = 32,
+    def __init__(self, file_path, emb_size: int = None, max_doc_length: int = 256, max_query_length: int = 32,
                  preprocess_dir: str = None, embedding_dir: str = None):
-        if file_type not in ['text2text', 'text2img', 'img2img']:
-            raise ValueError("your file_type must in 'text2text, text2img, img2img'")
-        self.file_type = file_type
+        """
+
+        :param file_path: path to load file
+        :param emb_size: embedding size of your docs.memmap/train-queries.memmap/dev-queries.memmap
+        :param max_doc_length: max doc length
+        :param max_query_length: max query length
+        :param preprocess_dir: path to save preprocessed files
+        :param embedding_dir: path to save embedding files
+        """
+        # if file_type not in ['text2text', 'text2img', 'img2img']:
+        #     raise ValueError("your file_type must in 'text2text, text2img, img2img'")
+        # self.file_type = file_type
         self.file_path = file_path
         self.emb_size = emb_size
         self.max_doc_length = max_doc_length

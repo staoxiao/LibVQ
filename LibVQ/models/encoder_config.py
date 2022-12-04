@@ -8,11 +8,11 @@ class EncoderConfig():
                  **kwargs):
         """
 
-        :param is_finetune: Whether encoder has been pre trained
-        :param doc_encoder_name_or_path: The name of the doc_encoder in huggingface, or the path of doc_encoder in your own folder
-        :param query_encoder_name_or_path: The name of the query_encoder in huggingface, or the path of query_encoder in your own folder
-        :param max_doc_length: The maximum doc length. If it is greater than this length, it will be truncated
-        :param max_query_length: The maximum query length. If it is greater than this length, it will be truncated
+        :param is_finetune: Whether encoder has been pre trained, including: True, False
+        :param doc_encoder_name_or_path: The name of the doc_encoder in huggingface, or the path of doc_encoder in your
+                own folder, e.g. Shitao/msmarco_doc_encoder
+        :param query_encoder_name_or_path: The name of the query_encoder in huggingface, or the path of query_encoder in
+                your own folder, e.g. Shitao/msmarco_query_encoder
         :param kwargs:
         """
         self.is_finetune = is_finetune

@@ -17,10 +17,10 @@ distill learnable index
 ```
 python ./test_distillLearnableIndex.py 
 ```
-constrative learnable index
+contrastive learnable index
 
 ```
-python ./test_constrativeLearnableIndex.py 
+python ./test_contrastiveLearnableIndex.py 
 ```
 
 distill learnable index with encoder
@@ -29,10 +29,10 @@ distill learnable index with encoder
 python ./test_distillLearnableIndexWithEncoder.py 
 ```
 
-constrative learnable index with encoder
+contrastive learnable index with encoder
 
 ```
-python ./test_constrativeLearnableIndexWithEncoder.py 
+python ./test_contrastiveLearnableIndexWithEncoder.py 
 ```
 
 auto index

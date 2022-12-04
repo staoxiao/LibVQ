@@ -2,7 +2,7 @@ from LibVQ.dataset import Datasets
 from LibVQ.dataset.preprocess import preprocess_data, generate_virtual_traindata
 from transformers import AutoTokenizer, AutoConfig
 from LibVQ.inference import inference
-from LibVQ.models import TransformerModel, Encoder
+from LibVQ.models import TransformerModel, Encoder, Pooler
 from torch import nn
 import os
 
@@ -10,17 +10,12 @@ import os
 class Model(nn.Module):
     def __init__(self,
                  query_encoder_path_or_name=None,
-                 doc_encoder_path_or_name=None,
-                 max_doc_length=256,
-                 max_query_length=32,
-                 emb_size=768
+                 doc_encoder_path_or_name=None
                  ):
         super(Model, self).__init__()
         query_encoder = TransformerModel.from_pretrained(query_encoder_path_or_name)
         doc_encoder = TransformerModel.from_pretrained(doc_encoder_path_or_name)
-        self.encoder = Encoder(query_encoder, doc_encoder, emb_size)
-        self.max_doc_length = max_doc_length
-        self.max_query_length = max_query_length
+        self.encoder = Encoder(query_encoder, doc_encoder)
 
         self.text_tokenizer = AutoTokenizer.from_pretrained(query_encoder_path_or_name)
 
@@ -38,6 +33,8 @@ class Model(nn.Module):
                         max_doc_length=datasets.max_doc_length,
                         max_query_length=datasets.max_query_length,
                         workers_num=works_num)
+        if datasets.emb_size is None:
+            datasets.emb_size = self.encoder.query_encoder.encoder.config.hidden_size
         # generate embeddings
         if datasets.doc_embeddings_dir is None and datasets.docs_path is not None:
             os.makedirs(datasets.embedding_dir, exist_ok=True)
@@ -46,7 +43,6 @@ class Model(nn.Module):
                 datasets.train_rels_path = os.path.join(datasets.preprocess_dir, 'train-rels.tsv')
             if datasets.dev_rels_path is not None:
                 datasets.dev_rels_path = os.path.join(datasets.preprocess_dir, 'dev-rels.tsv')
-            datasets.emb_size = self.encoder.output_size
             inference(data_dir=datasets.preprocess_dir,
                       is_query=False,
                       encoder=self.encoder,

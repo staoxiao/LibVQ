@@ -22,11 +22,13 @@ class LearnableVQ(nn.Module):
                  init_index_type: str = 'faiss',
                  index_method: str = 'ivf_opq',
                  dist_mode: str = 'ip',
-                 encoder=None):
+                 encoder=None,
+                 pooler=None):
         nn.Module.__init__(self)
 
         self.config = config
         self.encoder = encoder
+        self.pooler = pooler
         self.dist_mode = dist_mode
         if init_index_file is not None:
             if 'ivf' not in index_method and 'pq' not in index_method:
@@ -143,6 +145,11 @@ class LearnableVQ(nn.Module):
         else:
             doc_vecs = self.encoder.doc_emb(doc_token_ids, doc_attention_mask)
             neg_vecs = self.encoder.doc_emb(neg_token_ids, neg_attention_mask)
+
+        if self.pooler:
+            query_vecs = self.pooler(query_vecs)
+            doc_vecs = self.pooler(doc_vecs)
+            neg_vecs = self.pooler(neg_vecs)
 
         if self.pq is not None:
             rotate_query_vecs = self.pq.rotate_vec(query_vecs)

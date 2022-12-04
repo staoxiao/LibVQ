@@ -1,22 +1,15 @@
 import logging
 import os
-import pickle
-import shutil
 import time
-from typing import List, Dict, Type, Union
+from typing import Dict, Union
 
 import faiss
 import numpy
 import numpy as np
 import torch
-import torch.multiprocessing as mp
-from torch.optim import Optimizer
-from transformers import AdamW
 
 from LibVQ.base_index import FaissIndex, IndexConfig
-from LibVQ.dataset import write_rel
-from LibVQ.models import LearnableVQ, Model, EncoderConfig
-from LibVQ.train import train_model
+from LibVQ.models import LearnableVQ, Model, EncoderConfig, Pooler
 from LibVQ.dataset import Datasets
 
 
@@ -25,6 +18,7 @@ class LearnableIndex(FaissIndex):
                  index_config: IndexConfig = None,
                  encoder_config: EncoderConfig = None,
                  init_index_file: str = None,
+                 init_pooler_file: str = None
                  ):
         """
         finetune the index
@@ -32,12 +26,17 @@ class LearnableIndex(FaissIndex):
         :param index_config: Config of index. Default is None.
         :param encoder_config: Config of Encoder. Default is None.
         :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it
+        :param init_pooler_file: Create the pooler layer from the faiss index file
         """
         super(LearnableIndex).__init__()
         assert index_config is not None
         self.index_config = index_config
         self.encoder_config = encoder_config
         self.init_index_file = init_index_file
+
+        self.learnable_vq = None
+        self.model = None
+        self.pooler = None
 
         if init_index_file is None or not os.path.exists(init_index_file):
             self.is_trained = False
@@ -72,10 +71,17 @@ class LearnableIndex(FaissIndex):
             else:
                 self.ivf_centers_num = None
 
+        if init_pooler_file is not None:
+            dicts = torch.load(init_pooler_file)
+            self.pooler = Pooler(dicts['A'], dicts['b']).load_state_dict(dicts, strict=True)
+            if self.learnable_vq:
+                self.learnable_vq.encoder = self.model.encoder
+
         if encoder_config is not None and encoder_config.query_encoder_name_or_path is not None and encoder_config.doc_encoder_name_or_path is not None:
             self.model = Model(encoder_config.query_encoder_name_or_path,
-                               encoder_config.doc_encoder_name_or_path,
-                               index_config.emb_size)
+                               encoder_config.doc_encoder_name_or_path)
+            if self.learnable_vq:
+                self.learnable_vq.pooler = self.pooler
 
 
     def faiss_train(self, data:Datasets = None):
@@ -83,6 +89,24 @@ class LearnableIndex(FaissIndex):
             doc_embeddings = np.memmap(data.doc_embeddings_dir,
                                        dtype=np.float32, mode="r")
             doc_embeddings = doc_embeddings.reshape(-1, data.emb_size)
+            print(self.index_config.emb_size)
+            print(data.emb_size)
+            if self.index_config.emb_size != data.emb_size:
+                if not self.pooler:
+                    # training data
+                    mat = faiss.PCAMatrix(data.emb_size, self.index_config.emb_size)
+                    mat.train(doc_embeddings)
+                    assert mat.is_trained
+                    # doc_embeddings = mat.apply(len(doc_emb), doc_emb)
+                    # print(doc_embeddings.shape)
+                    # print this to show that the magnitude of tr's columns is decreasing
+                    b = faiss.vector_to_array(mat.b)
+                    A = faiss.vector_to_array(mat.A).reshape(mat.d_out, mat.d_in)
+                    self.pooler = Pooler(A, b)
+                    doc_embeddings = self.pooler(torch.Tensor(doc_embeddings.copy())).detach().cpu().numpy()
+                else:
+                    doc_embeddings = self.pooler(torch.Tensor(doc_embeddings.copy())).detach().cpu().numpy()
+
             self.faiss.fit(doc_embeddings)
             self.faiss.add(doc_embeddings)
             self.is_trained = True
@@ -109,6 +133,8 @@ class LearnableIndex(FaissIndex):
 
             if self.model:
                 self.learnable_vq.encoder = self.model.encoder
+            if self.pooler:
+                self.learnable_vq.pooler = self.pooler
 
     def check_index_parameters(self,
                                vq_model: LearnableVQ,
@@ -189,6 +215,12 @@ class LearnableIndex(FaissIndex):
                 self.index.pq.centroids)
 
         logging.info(f"updating the quantized results of docs' embeddings")
+
+        if self.pooler:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.pooler.to(device)
+            doc_embeddings = torch.Tensor(doc_embeddings.copy()).to(device)
+            doc_embeddings = self.pooler(doc_embeddings).detach().cpu().numpy()
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
         self.index.add(doc_embeddings)
 
@@ -237,225 +269,15 @@ class LearnableIndex(FaissIndex):
               ):
         raise NotImplementedError
 
+    def search_query(self, queries, data, kValue: int=20):
+        id2text = dict()
+        docsFile = open(data.docs_path, 'r', encoding='UTF-8')
+        count = 0
+        for line in docsFile:
+            id2text[count] = line.replace('\n', '').replace(line.split('\t')[0] + '\t', '')
+            count += 1
+        docsFile.close()
 
-    def fit(self,
-            query_embeddings: Union[str, numpy.ndarray],
-            doc_embeddings: Union[str, numpy.ndarray],
-            rel_data: Union[str, Dict[int, List[int]]] = None,
-            neg_data: Union[str, Dict[int, List[int]]] = None,
-            epochs: int = 5,
-            per_device_train_batch_size: int = 128,
-            per_query_neg_num: int = 1,
-            emb_size: int = None,
-            warmup_steps_ratio: float = 0.1,
-            optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                              'ivf_weight': 'scaled_to_pqloss'},
-            temperature: float = 1.0,
-            loss_method: str = 'distill',
-            weight_decay: float = 0.01,
-            max_grad_norm: float = -1,
-            show_progress_bar: bool = True,
-            checkpoint_path: str = None,
-            checkpoint_save_steps: int = None,
-            logging_steps: int = 100,
-            ):
-        """
-        Train the index
-
-        :param query_embeddings: Embeddings for each query, also support pass a file('.npy', '.memmap').
-        :param doc_embeddings: Embeddigns for each doc, also support pass a filename('.npy', '.memmap').
-        :param rel_data: Positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
-                         If set None, it will automatically generate the data for training based on the retrieval results.
-        :param neg_data: Negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
-                         If set None, it will randomly sample negative.
-        :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
-        :param emb_size: Dim of embeddings.
-        :param warmup_steps_ratio: The ration of warmup steps
-        :param optimizer_class: torch.optim.Optimizer
-        :param lr_params: Learning rate for encoder, ivf, and pq
-        :param loss_weight: Weight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
-        :param temperature: Temperature for softmax
-        :param loss_method: We provide two loss: 'contrastive' and 'distill'
-        :param weight_decay: Hyper-parameter for Optimizer
-        :param max_grad_norm: Used for gradient normalization
-        :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
-        :param checkpoint_save_steps: Will save a checkpoint after so many steps
-        :param logging_steps: Will show the loss information after so many steps
-        :return:
-        """
-
-        temp_checkpoint_path = None
-        if checkpoint_path is None:
-            temp_checkpoint_path = self.get_temp_checkpoint_save_path()
-            logging.info(f"The model will be saved into {temp_checkpoint_path}")
-            checkpoint_path = temp_checkpoint_path
-
-        query_embeddings = self.load_embedding(query_embeddings, emb_size=emb_size)
-        doc_embeddings = self.load_embedding(doc_embeddings, emb_size=emb_size)
-
-        if rel_data is None:
-            # generate train data
-            logging.info("generating relevance data...")
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.ivf_centers_num)
-
-        train_model(model=self.learnable_vq,
-                    rel_data=rel_data,
-                    epochs=epochs,
-                    per_device_train_batch_size=per_device_train_batch_size,
-                    per_query_neg_num=per_query_neg_num,
-                    neg_data=neg_data,
-                    query_embeddings=query_embeddings,
-                    doc_embeddings=doc_embeddings,
-                    emb_size=emb_size,
-                    warmup_steps_ratio=warmup_steps_ratio,
-                    optimizer_class=optimizer_class,
-                    lr_params=lr_params,
-                    loss_weight=loss_weight,
-                    temperature=temperature,
-                    loss_method=loss_method,
-                    weight_decay=weight_decay,
-                    max_grad_norm=max_grad_norm,
-                    show_progress_bar=show_progress_bar,
-                    checkpoint_path=checkpoint_path,
-                    checkpoint_save_steps=checkpoint_save_steps,
-                    logging_steps=logging_steps,
-                    fix_emb='query, doc'
-                    )
-
-        # update index
-        if self.index is not None:
-            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                        doc_embeddings=doc_embeddings)
-
-        # delete temp folder
-        if temp_checkpoint_path is not None:
-            shutil.rmtree(temp_checkpoint_path)
-
-
-    def fit_with_multi_gpus(
-            self,
-            query_embeddings_file: str,
-            doc_embeddings_file: str,
-            rel_file: str = None,
-            neg_file: str = None,
-            epochs: int = 5,
-            per_device_train_batch_size: int = 128,
-            per_query_neg_num: int = 1,
-            cross_device_sample: bool = True,
-            emb_size: int = None,
-            warmup_steps_ratio: float = 0.1,
-            optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-            loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
-                                              'ivf_weight': 'scaled_to_pqloss'},
-            temperature: float = 1.0,
-            loss_method: str = 'distill',
-            weight_decay: float = 0.01,
-            max_grad_norm: float = -1,
-            show_progress_bar: bool = True,
-            checkpoint_path: str = None,
-            checkpoint_save_steps: int = None,
-            logging_steps: int = 100,
-            master_port: str = '12345'
-    ):
-        """
-        Train the VQ model with multi GPUs and update the index
-
-        :param query_embeddings_file: Filename('.npy', '.memmap') to query embeddings.
-        :param doc_embeddings_file: Filename('.npy', '.memmap') to doc embeddings.
-        :param rel_file: A tsv file which save the relevance relationship: qeury_id \t doc_id \n.
-                         If set None, it will automatically generate the data for training based on the retrieval results.
-        :param neg_file: A pickle file which save the query2neg. if set None, it will randomly sample negative.
-                         If set None, it will randomly sample negative.
-        :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
-        :param emb_size: Dim of embeddings.
-        :param warmup_steps_ratio: The ration of warmup steps
-        :param optimizer_class: torch.optim.Optimizer
-        :param lr_params: Learning rate for encoder, ivf, and pq
-        :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
-        :param temperature: Temperature for softmax
-        :param loss_method: We provide two loss: 'contrastive' and 'distill'
-        :param weight_decay: Hyper-parameter for Optimizer
-        :param max_grad_norm: Used for gradient normalization
-        :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
-        :param checkpoint_save_steps: Will save a checkpoint after so many steps
-        :param logging_steps: Will show the loss information after so many steps
-        :param master_port: setting for distributed training
-        :return:
-        """
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = master_port
-        world_size = torch.cuda.device_count()
-
-        temp_checkpoint_path = None
-        if checkpoint_path is None:
-            temp_checkpoint_path = self.get_temp_checkpoint_save_path()
-            logging.info(f"The model will be saved into {temp_checkpoint_path}")
-            checkpoint_path = temp_checkpoint_path
-
-        doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
-        if rel_file is None:
-            # generate train data
-            logging.info("generating relevance data...")
-            query_embeddings = self.load_embedding(query_embeddings_file, emb_size=emb_size)
-            rel_data, neg_data = self.generate_virtual_traindata(query_embeddings=query_embeddings, topk=400, nprobe=self.ivf_centers_num)
-
-            logging.info(f"saving relevance data to {checkpoint_path}...")
-            rel_file = os.path.join(checkpoint_path, 'train-virtual_rel.tsv')
-            neg_file = os.path.join(checkpoint_path, f"train-queries-virtual_hardneg.pickle")
-            write_rel(rel_file, rel_data)
-            pickle.dump(neg_data, open(neg_file, 'wb'))
-
-        mp.spawn(train_model,
-                 args=(self.learnable_vq,
-                       None,
-                       rel_file,
-                       None,
-                       None,
-                       None,
-                       None,
-                       world_size,
-                       epochs,
-                       per_device_train_batch_size,
-                       per_query_neg_num,
-                       cross_device_sample,
-                       neg_file,
-                       query_embeddings_file,
-                       doc_embeddings_file,
-                       emb_size,
-                       warmup_steps_ratio,
-                       optimizer_class,
-                       lr_params,
-                       loss_weight,
-                       temperature,
-                       loss_method,
-                       'query, doc',
-                       weight_decay,
-                       max_grad_norm,
-                       show_progress_bar,
-                       checkpoint_path,
-                       checkpoint_save_steps,
-                       logging_steps
-                       ),
-                 nprocs=world_size,
-                 join=True)
-
-        # update index
-        if self.index is not None:
-            self.update_index_with_ckpt(saved_ckpts_path=checkpoint_path,
-                                        doc_embeddings=doc_embeddings)
-
-        # delete temp folder
-        if temp_checkpoint_path is not None:
-            shutil.rmtree(temp_checkpoint_path)
-
-    def search_query(self, queries, id2text, kValue: int=20):
         input_data = self.model.text_tokenizer(queries, padding=True)
         input_ids = torch.LongTensor(input_data['input_ids'])
         attention_mask = torch.LongTensor(input_data['attention_mask'])
@@ -463,7 +285,11 @@ class LearnableIndex(FaissIndex):
         input_ids = input_ids.to(device)
         attention_mask = attention_mask.to(device)
         self.model.to(device)
-        query_embeddings = self.model.encoder.query_emb(input_ids, attention_mask).detach().to('cpu')
+        query_embeddings = self.model.encoder.query_emb(input_ids, attention_mask).detach().cpu().numpy()
+        if self.pooler:
+            query_embeddings = torch.Tensor(query_embeddings.copy()).to(device)
+            self.pooler.to(device)
+            query_embeddings = self.pooler(query_embeddings).detach().cpu().numpy()
         _, topk_ids = self.search(query_embeddings, kValue, nprobe=self.index_config.nprobe)
         output_texts = []
         for ids in topk_ids:
@@ -473,3 +299,15 @@ class LearnableIndex(FaissIndex):
                     temp.append(id2text[id])
             output_texts.append(temp)
         return output_texts, topk_ids
+
+    def get(self, data, file):
+        emb = np.memmap(os.path.join(data.embedding_dir, file), dtype=np.float32, mode="r")
+        emb = emb.reshape(-1, data.emb_size)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        emb = torch.Tensor(emb.copy()).to(device)
+        self.pooler.to(device)
+        emb = self.pooler(emb).detach().cpu().numpy()
+        return emb
+
+
+
