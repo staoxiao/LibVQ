@@ -16,10 +16,10 @@ setup(
     packages=find_packages(),
     install_requires=[
         'transformers>=4.9.0',
-        'faiss-gpu>=1.6.4.post2',
+        'faiss-gpu==1.6.4.post2',
         'scann==1.2.3',
         'tqdm',
-        'torch>=1.6.0',
+        'torch==1.12.1',
         'numpy'
     ],
     keywords="Vector Quantization, ANN, IVF"

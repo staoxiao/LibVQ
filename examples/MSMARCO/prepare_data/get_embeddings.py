@@ -62,7 +62,7 @@ if __name__ == '__main__':
               prefix=f'docs',
               max_length=data_args.max_doc_length,
               output_dir=data_args.output_dir,
-              batch_size=10240,
+              batch_size=256,
               enable_rewrite=False,
               return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
@@ -71,7 +71,7 @@ if __name__ == '__main__':
               prefix=f'dev-queries',
               max_length=data_args.max_query_length,
               output_dir=data_args.output_dir,
-              batch_size=10240,
+              batch_size=256,
               enable_rewrite=False,
               return_vecs=False)
     inference(data_dir=data_args.preprocess_dir,
@@ -80,7 +80,7 @@ if __name__ == '__main__':
               prefix=f'train-queries',
               max_length=data_args.max_query_length,
               output_dir=data_args.output_dir,
-              batch_size=10240,
+              batch_size=256,
               enable_rewrite=False,
               return_vecs=False)
 
