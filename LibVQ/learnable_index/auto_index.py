@@ -34,5 +34,6 @@ class AutoIndex():
         else:
             print('your index is distill learnable index')
             if data.doc_embeddings_dir is None:
-                raise ValueError("Due to the lack of embedding file, you can't use this index")
+                print("hint: Due to the lack of embedding file, you can't use this index")
+                return None
             return DistillLearnableIndex(index_config, encoder_config)

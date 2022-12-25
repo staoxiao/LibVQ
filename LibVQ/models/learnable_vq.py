@@ -135,7 +135,7 @@ class LearnableVQ(nn.Module):
                 world_size: int = 1,
                 cross_device_sample: bool = True):
 
-        if fix_emb is not None and 'query' in fix_emb:
+        if fix_emb is not None and 'search2' in fix_emb:
             query_vecs = origin_q_emb
         else:
             query_vecs = self.encoder.query_emb(query_token_ids, query_attention_mask)

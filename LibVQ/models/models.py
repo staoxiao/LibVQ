@@ -34,7 +34,10 @@ class Model(nn.Module):
                         max_query_length=datasets.max_query_length,
                         workers_num=works_num)
         if datasets.emb_size is None:
-            datasets.emb_size = self.encoder.query_encoder.encoder.config.hidden_size
+            params = self.encoder.query_encoder.parameters()
+            for last in params:
+                continue
+            datasets.emb_size = last.size()[-1]
         # generate embeddings
         if datasets.doc_embeddings_dir is None and datasets.docs_path is not None:
             os.makedirs(datasets.embedding_dir, exist_ok=True)

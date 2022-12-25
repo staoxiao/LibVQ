@@ -46,7 +46,10 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
               loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
                                                 'ivf_weight': 'scaled_to_pqloss'},
               lr_params: Dict[str, object] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-              epoch: int = 10
+              max_grad_norm: float = -1,
+              temperature: float = 1.0,
+              checkpoint_save_steps: int = None,
+              epochs: int = 10
               ):
         # if self.index_config.emb_size is not None and data.emb_size is not None:
         #     if self.index_config.emb_size != data.emb_size:
@@ -74,14 +77,17 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
                          max_query_length=data.max_query_length,
                          doc_data_dir=data.preprocess_dir,
                          max_doc_length=data.max_doc_length,
-                         emb_size=self.index_config.emb_size,
+                         emb_size=data.emb_size,
                          per_query_neg_num=per_query_neg_num,
                          checkpoint_path=save_ckpt_dir,
                          logging_steps=logging_steps,
                          per_device_train_batch_size=per_device_train_batch_size,
                          loss_weight=loss_weight,
                          lr_params=lr_params,
-                         epochs=epoch)
+                         max_grad_norm=max_grad_norm,
+                         temperature=temperature,
+                         checkpoint_save_steps=checkpoint_save_steps,
+                         epochs=epochs)
             else:
                 self.fit_with_multi_gpus(rel_file=data.train_rels_path,
                                          query_embeddings_file=data.train_queries_embedding_dir,
@@ -90,14 +96,17 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
                                          max_query_length=data.max_query_length,
                                          doc_data_dir=data.preprocess_dir,
                                          max_doc_length=data.max_doc_length,
-                                         emb_size=self.index_config.emb_size,
+                                         emb_size=data.emb_size,
                                          per_query_neg_num=per_query_neg_num,
                                          checkpoint_path=save_ckpt_dir,
                                          logging_steps=logging_steps,
                                          per_device_train_batch_size=per_device_train_batch_size,
                                          loss_weight=loss_weight,
                                          lr_params=lr_params,
-                                         epochs=epoch)
+                                         max_grad_norm=max_grad_norm,
+                                         temperature=temperature,
+                                         checkpoint_save_steps=checkpoint_save_steps,
+                                         epochs=epochs)
         if data.dev_queries_path is not None:
             os.remove(data.dev_queries_embedding_dir)
             self.encode(data_dir=data.preprocess_dir,
@@ -118,15 +127,15 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
             max_doc_length: int = None,
             rel_data: Union[str, Dict[int, List[int]]] = None,
             neg_data: Union[str, Dict[int, List[int]]] = None,
-            epochs: int = 5,
+            epochs: int = 16,
             per_device_train_batch_size: int = 128,
             per_query_neg_num: int = 1,
             emb_size: int = None,
             warmup_steps_ratio: float = 0.1,
             optimizer_class: Type[Optimizer] = AdamW,
-            lr_params: Dict[str, float] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
             loss_weight: Dict[str, object] = {'encoder_weight': 1.0, 'pq_weight': 1.0,
                                               'ivf_weight': 'scaled_to_pqloss'},
+            lr_params: Dict[str, object] = {'encoder_lr': 1e-5, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
             temperature: float = 1.0,
             fix_emb: str = 'doc',
             weight_decay: float = 0.01,
@@ -139,26 +148,26 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
         """
         Train the index and encoder
 
-        :param query_embeddings: Embeddings for each query, also support pass a file('.npy', '.memmap').
+        :param query_embeddings: Embeddings for each search2, also support pass a file('.npy', '.memmap').
         :param doc_embeddings: Embeddigns for each doc, also support pass a filename('.npy', '.memmap').
-        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training query encoder).
-        :param max_query_length: Max length of query tokens sequence.
+        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training search2 encoder).
+        :param max_query_length: Max length of search2 tokens sequence.
         :param doc_data_dir: Path to the preprocessed tokens data (needed for jointly training doc encoder).
         :param max_doc_length: Max length of doc tokens sequence.
-        :param rel_data: Positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
+        :param rel_data: Positive doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
                          If set None, it will automatically generate the data for training based on the retrieval results.
-        :param neg_data: Negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
+        :param neg_data: Negative doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
                          If set None, it will randomly sample negative.
         :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
+        :param per_device_train_batch_size: The number of search2-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each search2
         :param emb_size: Dim of embeddings.
         :param warmup_steps_ratio: The ration of warmup steps
         :param optimizer_class: torch.optim.Optimizer
         :param lr_params: Learning rate for encoder, ivf, and pq
         :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
         :param temperature: Temperature for softmax
-        :param fix_emb: Fix the embeddings of query or doc. 'doc' means to fix the embeddings of doc; 'query' means to fix the embeddings of query; 'query,doc' means to  fix both embeddings.
+        :param fix_emb: Fix the embeddings of search2 or doc. 'doc' means to fix the embeddings of doc; 'search2' means to fix the embeddings of search2; 'search2,doc' means to  fix both embeddings.
         :param weight_decay: Hyper-parameter for Optimizer
         :param max_grad_norm: Used for gradient normalization
         :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
@@ -208,7 +217,7 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
                     checkpoint_save_steps=checkpoint_save_steps,
                     logging_steps=logging_steps
                     )
-        if fix_emb is None or 'query' not in fix_emb or 'doc' not in fix_emb:
+        if fix_emb is None or 'search2' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)
@@ -267,10 +276,10 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
         """
         Train the index and encoder with multi GPUs
 
-        :param query_embeddings_file: Filename('.npy', '.memmap') to query embeddings.
+        :param query_embeddings_file: Filename('.npy', '.memmap') to search2 embeddings.
         :param doc_embeddings_file: Filename('.npy', '.memmap') to doc embeddings.
-        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training query encoder).
-        :param max_query_length: Max length of query tokens sequence.
+        :param query_data_dir: Path to the preprocessed tokens data (needed for jointly training search2 encoder).
+        :param max_query_length: Max length of search2 tokens sequence.
         :param doc_data_dir: Path to the preprocessed tokens data (needed for jointly training doc encoder).
         :param max_doc_length: Max length of doc tokens sequence.
         :param rel_file: A tsv file which save the relevance relationship: qeury_id \t doc_id \n.
@@ -278,15 +287,15 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
         :param neg_file: A pickle file which save the query2neg. if set None, it will randomly sample negative.
                          If set None, it will randomly sample negative.
         :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
+        :param per_device_train_batch_size: The number of search2-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each search2
         :param emb_size: Dim of embeddings.
         :param warmup_steps_ratio: The ration of warmup steps
         :param optimizer_class: torch.optim.Optimizer
         :param lr_params: Learning rate for encoder, ivf, and pq
         :param loss_weight: Wight for loss of encoder, ivf, and pq. "scaled_to_pqloss"" means that make the weighted loss closed to the loss of pq module.
         :param temperature: Temperature for softmax
-        :param fix_emb: Fix the embeddings of query or doc. 'doc' means to fix the embeddings of doc; 'query' means to fix the embeddings of query; 'query,doc' means to  fix both embeddings.
+        :param fix_emb: Fix the embeddings of search2 or doc. 'doc' means to fix the embeddings of doc; 'search2' means to fix the embeddings of search2; 'search2,doc' means to  fix both embeddings.
         :param weight_decay: Hyper-parameter for Optimizer
         :param max_grad_norm: Used for gradient normalization
         :param checkpoint_path: Folder to save checkpoints during training. If set None, it will create a temp folder.
@@ -353,7 +362,7 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
                  nprocs=world_size,
                  join=True)
 
-        if fix_emb is None or 'query' not in fix_emb or 'doc' not in fix_emb:
+        if fix_emb is None or 'search2' not in fix_emb or 'doc' not in fix_emb:
             # update encoder
             assert self.learnable_vq.encoder is not None
             self.update_encoder(saved_ckpts_path=checkpoint_path)

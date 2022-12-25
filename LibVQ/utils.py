@@ -23,7 +23,7 @@ def setuplogging(level=logging.INFO):
     root.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("[%(levelname)s %(asctime)s] %(message)s")
+    formatter = logging.Formatter("[%(levelname)search2 %(asctime)search2] %(message)search2")
     handler.setFormatter(formatter)
     if (root.hasHandlers()):
         root.handlers.clear()  # otherwise logging have multi output

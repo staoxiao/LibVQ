@@ -25,15 +25,15 @@ class DatasetForVQ(Dataset):
                  doc_embeddings: Union[str, numpy.ndarray] = None,
                  emb_size: int = None):
         """
-        :param rel_data: positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
-        :param query_data_dir: path to the preprocessed tokens data (needed for jointly training query encoder).
-        :param max_query_length: max length of query tokens sequence.
+        :param rel_data: positive doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
+        :param query_data_dir: path to the preprocessed tokens data (needed for jointly training search2 encoder).
+        :param max_query_length: max length of search2 tokens sequence.
         :param doc_data_dir: path to the preprocessed tokens data (needed for jointly training doc encoder).
         :param max_doc_length: max length of doc tokens sequence.
-        :param per_query_neg_num: the number of negatives for each query.
-        :param neg_data: negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
+        :param per_query_neg_num: the number of negatives for each search2.
+        :param neg_data: negative doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
                         if set None, it will randomly sample negative.
-        :param query_embeddings: embeddings for each query, also support pass a filename('.npy', '.memmap').
+        :param query_embeddings: embeddings for each search2, also support pass a filename('.npy', '.memmap').
         :param doc_embeddings: embeddigns for each doc, also support pass a filename('.npy', '.memmap').
         :param emb_size: dim of embeddings.
         """
@@ -96,7 +96,7 @@ class DatasetForVQ(Dataset):
     def __getitem__(self, index):
         query = self.query_list[index]
 
-        pos = random.sample(self.query2pos[query], 1)[0]
+        pos = random.sample(list(self.query2pos[query]), 1)[0]
         if self.per_query_neg_num > len(self.query2neg[query]):
             negs = self.query2neg[query] + random.sample(self.docs_list,
                                                          self.per_query_neg_num - len(self.query2neg[query]))
@@ -259,7 +259,7 @@ class Datasets():
         :param file_path: path to load file
         :param emb_size: embedding size of your docs.memmap/train-queries.memmap/dev-queries.memmap
         :param max_doc_length: max doc length
-        :param max_query_length: max query length
+        :param max_query_length: max search2 length
         :param preprocess_dir: path to save preprocessed files
         :param embedding_dir: path to save embedding files
         """
@@ -275,7 +275,7 @@ class Datasets():
 
         if file_path in ['MSMARCO']:
             if not os.path.exists(file_path):
-                raise ValueError("Please read example/MSMARCO/REARME.md to prepare the dataset MSMARCO")
+                raise ValueError("Please read example/MSMARCO/REARME.md to prepare_embedding the dataset MSMARCO")
 
         dirs = os.listdir(file_path)
         self.docs_path = os.path.join(file_path, 'collection.tsv') if 'collection.tsv' in dirs else None
@@ -308,7 +308,7 @@ class Datasets():
             train_queries_embedding = np.memmap(self.train_queries_embedding_dir,
                                     dtype=np.float32, mode='w+', shape=(size,))
             train_queries_embedding[:] = temp_train[:]
-        elif self.train_queries_path is None:
+        elif self.train_queries_path is None and self.docs_path is not None:
             self.train_queries_path = os.path.join(self.file_path, 'train-queries.tsv')
             docs = open(self.docs_path, 'r')
             query = open(self.train_queries_path, 'w+')

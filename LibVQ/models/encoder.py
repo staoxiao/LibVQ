@@ -47,11 +47,16 @@ class Encoder(nn.Module):
     def save(self, save_file):
         torch.save(self.state_dict(), save_file)
 
+
 class Pooler(nn.Module):
     def __init__(self, A, b):
         super(Pooler, self).__init__()
-        self.A = nn.Parameter(torch.FloatTensor(A), requires_grad=True)
-        self.b = nn.Parameter(torch.FloatTensor(b), requires_grad=True)
+        if type(A) != torch.Tensor:
+            self.A = nn.Parameter(torch.FloatTensor(A), requires_grad=False)
+            self.b = nn.Parameter(torch.FloatTensor(b), requires_grad=False)
+        else:
+            self.A = nn.Parameter(A, requires_grad=False)
+            self.b = nn.Parameter(b, requires_grad=False)
 
     def forward(self, input_emb):
         outputs = input_emb @ self.A.T + self.b

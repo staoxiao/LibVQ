@@ -46,7 +46,10 @@ class ContrastiveLearnableIndex(LearnableIndex):
               loss_weight: Dict[str, object] = {'encoder_weight': 0.0, 'pq_weight': 1.0,
                                                 'ivf_weight': 'scaled_to_pqloss'},
               lr_params: Dict[str, object] = {'encoder_lr': 0.0, 'pq_lr': 1e-4, 'ivf_lr': 1e-3},
-              epoch: int = 30
+              max_grad_norm: float = -1,
+              temperature: float = 1.0,
+              checkpoint_save_steps: int = None,
+              epochs: int = 30
               ):
         # if self.index_config.emb_size is not None and data.emb_size is not None:
         #     if self.index_config.emb_size != data.emb_size:
@@ -69,26 +72,32 @@ class ContrastiveLearnableIndex(LearnableIndex):
                 self.fit(rel_data=data.train_rels_path,
                          query_embeddings=data.train_queries_embedding_dir,
                          doc_embeddings=data.doc_embeddings_dir,
-                         emb_size=self.index_config.emb_size,
+                         emb_size=data.emb_size,
                          per_query_neg_num=per_query_neg_num,
                          checkpoint_path=save_ckpt_dir,
                          logging_steps=logging_steps,
                          per_device_train_batch_size=per_device_train_batch_size,
                          loss_weight=loss_weight,
                          lr_params=lr_params,
-                         epochs=epoch)
+                         max_grad_norm=max_grad_norm,
+                         temperature=temperature,
+                         checkpoint_save_steps=checkpoint_save_steps,
+                         epochs=epochs)
             else:
                 self.fit_with_multi_gpus(rel_file=data.train_rels_path,
                                          query_embeddings_file=data.train_queries_embedding_dir,
                                          doc_embeddings_file=data.doc_embeddings_dir,
-                                         emb_size=self.index_config.emb_size,
+                                         emb_size=data.emb_size,
                                          per_query_neg_num=per_query_neg_num,
                                          checkpoint_path=save_ckpt_dir,
                                          logging_steps=logging_steps,
                                          per_device_train_batch_size=per_device_train_batch_size,
                                          loss_weight=loss_weight,
                                          lr_params=lr_params,
-                                         epochs=epoch)
+                                         max_grad_norm=max_grad_norm,
+                                         temperature=temperature,
+                                         checkpoint_save_steps=checkpoint_save_steps,
+                                         epochs=epochs)
 
     def fit(self,
             query_embeddings: Union[str, numpy.ndarray],
@@ -115,15 +124,15 @@ class ContrastiveLearnableIndex(LearnableIndex):
         """
         Train the index
 
-        :param query_embeddings: Embeddings for each query, also support pass a file('.npy', '.memmap').
+        :param query_embeddings: Embeddings for each search2, also support pass a file('.npy', '.memmap').
         :param doc_embeddings: Embeddigns for each doc, also support pass a filename('.npy', '.memmap').
-        :param rel_data: Positive doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
+        :param rel_data: Positive doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a tsv file which save the relevance relationship: qeury_id \t doc_id \n.
                          If set None, it will automatically generate the data for training based on the retrieval results.
-        :param neg_data: Negative doc ids for each query: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
+        :param neg_data: Negative doc ids for each search2: {query_id:[doc_id1, doc_id2,...]}, or a pickle file which save the query2neg.
                          If set None, it will randomly sample negative.
         :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
+        :param per_device_train_batch_size: The number of search2-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each search2
         :param emb_size: Dim of embeddings.
         :param warmup_steps_ratio: The ration of warmup steps
         :param optimizer_class: torch.optim.Optimizer
@@ -173,7 +182,7 @@ class ContrastiveLearnableIndex(LearnableIndex):
                     checkpoint_path=checkpoint_path,
                     checkpoint_save_steps=checkpoint_save_steps,
                     logging_steps=logging_steps,
-                    fix_emb='query, doc'
+                    fix_emb='search2, doc'
                     )
 
         # update index
@@ -214,15 +223,15 @@ class ContrastiveLearnableIndex(LearnableIndex):
         """
         Train the VQ model with multi GPUs and update the index
 
-        :param query_embeddings_file: Filename('.npy', '.memmap') to query embeddings.
+        :param query_embeddings_file: Filename('.npy', '.memmap') to search2 embeddings.
         :param doc_embeddings_file: Filename('.npy', '.memmap') to doc embeddings.
         :param rel_file: A tsv file which save the relevance relationship: qeury_id \t doc_id \n.
                          If set None, it will automatically generate the data for training based on the retrieval results.
         :param neg_file: A pickle file which save the query2neg. if set None, it will randomly sample negative.
                          If set None, it will randomly sample negative.
         :param epochs: The epochs of training
-        :param per_device_train_batch_size: The number of query-doc positive pairs in a batch
-        :param per_query_neg_num: The number of negatives for each query
+        :param per_device_train_batch_size: The number of search2-doc positive pairs in a batch
+        :param per_query_neg_num: The number of negatives for each search2
         :param emb_size: Dim of embeddings.
         :param warmup_steps_ratio: The ration of warmup steps
         :param optimizer_class: torch.optim.Optimizer
@@ -283,7 +292,7 @@ class ContrastiveLearnableIndex(LearnableIndex):
                        loss_weight,
                        temperature,
                        'contras',
-                       'query, doc',
+                       'search2, doc',
                        weight_decay,
                        max_grad_norm,
                        show_progress_bar,

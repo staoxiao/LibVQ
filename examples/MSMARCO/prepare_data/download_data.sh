@@ -20,6 +20,6 @@ rm -r collectionandqueries.tar.gz
 cd ../../../
 python ./prepare_data/convert_data_format.py
 
-mkdir MSMARCO
-cp -r ./data/passage/dataset ./MSMARCO
-rm -r ./data
+mkdir data/MSMARCO
+cp -r ./data/passage/dataset ./data/MSMARCO
+rm -r ./data/passage

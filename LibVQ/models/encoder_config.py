@@ -21,7 +21,7 @@ class EncoderConfig():
 
     def save(self, path: str = 'encoder_configuration.json'):
         config_dict = dict()
-        config_dict['encoder_pretrained'] = self.encoder_pretrained
+        config_dict['is_finetune'] = self.is_finetune
         config_dict['doc_encoder_name_or_path'] = self.doc_encoder_name_or_path
         config_dict['query_encoder_name_or_path'] = self.query_encoder_name_or_path
         json.dump(config_dict, open(path, 'w+'))

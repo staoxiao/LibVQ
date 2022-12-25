@@ -3,12 +3,12 @@ import json
 class IndexConfig():
     def __init__(self,
                  index_backend: str = 'FAISS',
-                 index_method: str = 'ivf_opq',
+                 index_method: str = 'flat',
                  emb_size: int = 768,
-                 ivf_centers_num: int = 10000,
-                 subvector_num: int = 32,
-                 subvector_bits: int = 8,
-                 nprobe: int = 100,
+                 ivf_centers_num: int = None,
+                 subvector_num: int = None,
+                 subvector_bits: int = None,
+                 nprobe: int = 1,
                  dist_mode: str = 'ip',
                  **kwargs):
         """
@@ -20,7 +20,7 @@ class IndexConfig():
         :param subvector_num: The number of codebooks, e.g. 32, 64
         :param subvector_bits: The number of codewords for each codebook, e.g. 4, 8, 16
         :param nprobe: The number of lists returned in retrieval, e.g. 10, 100
-        :param dist_mode: Metric to calculate the distance between query and doc, including: ip, l2
+        :param dist_mode: Metric to calculate the distance between search2 and doc, including: ip, l2
         :param kwargs:
         """
         self.index_backend = index_backend

@@ -32,10 +32,10 @@ class BaseIndex():
                topk: int,
                nprobe: int):
         """
-        search nearest neighbors for queries
+        search2 nearest neighbors for queries
         :param query_embeddings: queries' embeddings
         :param topk: the number of neighbors
-        :param nprobe: the number of ivf post list to search for each query
+        :param nprobe: the number of ivf post list to search2 for each search2
         :return:
         """
         raise NotImplementedError
@@ -47,8 +47,8 @@ class BaseIndex():
                       batch_size: int = None,
                       nprobe: int = None) -> Dict[int, List[int]]:
         """
-        search topk docs for query embeddings and filter the positive items in ground truths; the results can be viewed as queries' hard negatives
-        :return: query2hardneg: hard negatives for each query
+        search2 topk docs for search2 embeddings and filter the positive items in ground truths; the results can be viewed as queries' hard negatives
+        :return: query2hardneg: hard negatives for each search2
         """
         score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size, nprobe=nprobe)
         query2hardneg = {}
@@ -63,7 +63,7 @@ class BaseIndex():
                                    batch_size: int = None,
                                    nprobe: int = None):
         """
-        search topk docs for query embeddings, then use the top-1 doc as the positive item to form query2pos, and use the rest to form the query2neg
+        search2 topk docs for search2 embeddings, then use the top-1 doc as the positive item to form query2pos, and use the rest to form the query2neg
         """
         score, search_results = self.search(query_embeddings, topk=topk, batch_size=batch_size, nprobe=nprobe)
         query2pos = {}

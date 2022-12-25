@@ -59,7 +59,7 @@ class LearnableIndexWithEncoder(LearnableIndex):
         :param max_length: The max length of tokens
         :param output_dir: Path to save embeddings
         :param batch_size: Batch size
-        :param is_query: Set True when infer the embeddigns of query
+        :param is_query: Set True when infer the embeddigns of search2
         :param return_vecs: Whether return vectors
         :return: None or embeddigns
         '''
