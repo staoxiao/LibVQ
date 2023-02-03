@@ -10,7 +10,6 @@ import numpy as np
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
-from LibVQ.base_index import FaissIndex
 from LibVQ.dataset import write_rel
 
 tokenizer = None
@@ -163,40 +162,3 @@ def preprocess_data(data_dir: str,
                            output_offset_rel=output_offset_rel,
                            qid2offset=qid2offset,
                            did2offset=did2offset)
-
-
-
-
-def generate_virtual_traindata(
-        doc_embeddings,
-        train_query,
-        output_dir: str,
-        use_gpu: bool,
-        topk: int = 400,
-        index_method: str = 'flat',
-        ivf_centers_num=-1,
-        subvector_num=-1,
-        subvector_bits=8,
-        dist_mode='ip'):
-    faiss.omp_set_num_threads(32)
-    index = FaissIndex(index_method=index_method,
-                       emb_size=len(doc_embeddings[0]),
-                       ivf_centers_num=ivf_centers_num,
-                       subvector_num=subvector_num,
-                       subvector_bits=subvector_bits,
-                       dist_mode=dist_mode,
-                       doc_embeddings=doc_embeddings)
-
-    if use_gpu:
-        faiss.index_cpu_to_all_gpus(index.index)
-
-    query2pos, query2neg = index.generate_virtual_traindata(train_query,
-                                                            topk=topk,
-                                                            batch_size=64
-                                                            )
-
-    write_rel(os.path.join(output_dir, 'train-virtual_rel.tsv'), query2pos)
-    pickle.dump(query2neg, open(os.path.join(output_dir, f"train-queries-virtual_hardneg.pickle"), 'wb'))
-
-    del query2neg, query2pos
-    gc.collect()

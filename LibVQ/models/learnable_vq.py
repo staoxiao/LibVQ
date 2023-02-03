@@ -6,7 +6,6 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 
-from LibVQ.base_index import IndexConfig
 from LibVQ.models import IVFCPU
 from LibVQ.models import Quantization
 from LibVQ.utils import dist_gather_tensor
@@ -17,11 +16,11 @@ class LearnableVQ(nn.Module):
     Learnable VQ model, supports both IVF and PQ.
     """
     def __init__(self,
-                 config: Type[IndexConfig] = None,
                  init_index_file: str = None,
                  init_index_type: str = 'faiss',
                  index_method: str = 'ivf_opq',
                  dist_mode: str = 'ip',
+                 config=None,
                  encoder=None,
                  pooler=None):
         nn.Module.__init__(self)
@@ -118,6 +117,21 @@ class LearnableVQ(nn.Module):
             pq_loss = self.distill_loss(origin_score, pq_score)
         return dense_loss, ivf_loss, pq_loss
 
+    def L2Loss(self, y, yhead):
+        return torch.mean((y - yhead) ** 2)
+
+    def compute_quantization_loss(self,
+                                  origin_emb: torch.Tensor,
+                                  quantization_emb: torch.Tensor):
+        if any(v is None for v in (origin_emb, quantization_emb)): return None
+
+        loss = F.mse_loss(quantization_emb, origin_emb)
+        # target = torch.ones(len(origin_emb))
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # target = target.to(device)
+        # loss = F.cosine_embedding_loss(quantization_emb, origin_emb, target)
+        return loss
+
     def forward(self,
                 query_token_ids: torch.LongTensor,
                 query_attention_mask: torch.LongTensor,
@@ -209,6 +223,11 @@ class LearnableVQ(nn.Module):
 
         dense_loss, ivf_loss, pq_loss = self.compute_loss(origin_score, dense_score, ivf_score, pq_score,
                                                           loss_method=loss_method)
+        if self.pooler is None and self.pq is not None:
+            reconstruction_loss = self.compute_quantization_loss(origin_d_emb, quantized_doc) +\
+                                    self.compute_quantization_loss(origin_n_emb, quantized_neg)
+            pq_loss += reconstruction_loss
+
         return dense_loss, ivf_loss, pq_loss
 
     def dist_gather_tensor(self, vecs):

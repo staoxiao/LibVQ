@@ -2,69 +2,211 @@ import math
 import time
 from typing import Dict, List
 
+import os
 import faiss
 import numpy
+import torch
 import numpy as np
 from tqdm import tqdm
 
-from LibVQ.base_index import BaseIndex
-
+from LibVQ.base_index import BaseIndex, IndexConfig
+from LibVQ.models import Model, EncoderConfig, Pooler
+from LibVQ.dataset import Datasets
 
 class FaissIndex(BaseIndex):
     def __init__(self,
-                 index_method: str = 'ivf_opq',
-                 emb_size: int = 768,
-                 ivf_centers_num: int = 10000,
-                 subvector_num: int = 32,
-                 subvector_bits: int = 8,
-                 dist_mode: str = 'ip',
-                 doc_embeddings: np.ndarray = None):
+                 index_config: IndexConfig = None,
+                 encoder_config: EncoderConfig = None,
+                 init_index_file: str = None,
+                 init_pooler_file: str = None,
+                 doc_embeddings: np.ndarray = None
+                 ):
         """
-        Index based on Faiss Library
+        finetune the index
 
-        :param index_method: Type of index, support flat, ivf, ivf_opq, ivf_pq, opq and pq.
-        :param emb_size: Dim of embeddings.
-        :param ivf_centers_num: The number of post lists
-        :param subvector_num: The number of codebooks
-        :param subvector_bits: The number of codewords in each codebook
-        :param dist_mode: The metric to compute distance
-        :param doc_embeddings: Embedding of docs.
+        :param index_config: Config of index. Default is None.
+        :param encoder_config: Config of Encoder. Default is None.
+        :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it
+        :param init_pooler_file: Create the pooler layer from the faiss index file
         """
         BaseIndex.__init__(self, )
+        assert index_config is not None
+        self.index_config = index_config
+        self.encoder_config = encoder_config
+        self.init_index_file = init_index_file
+        self.init_pooler_file = init_pooler_file
 
-        assert dist_mode in ('ip', 'l2')
-        self.index_metric = faiss.METRIC_INNER_PRODUCT if dist_mode == 'ip' else faiss.METRIC_L2
+        self.model = None
+        self.pooler = None
 
+        assert index_config.dist_mode in ('ip', 'l2')
+        self.index_metric = faiss.METRIC_INNER_PRODUCT if index_config.dist_mode == 'ip' else faiss.METRIC_L2
+
+        if index_config.emb_size is not None:
+            emb_size = index_config.emb_size
         if doc_embeddings is not None:
             emb_size = np.shape(doc_embeddings)[-1]
 
-        if index_method == 'flat':
-            self.index = faiss.IndexFlatIP(emb_size) if dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
-        elif index_method == 'ivf':
-            quantizer = faiss.IndexFlatIP(emb_size) if dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
-            self.index = faiss.IndexIVFFlat(quantizer, emb_size, ivf_centers_num, self.index_metric)
-        elif index_method == 'ivf_opq':
-            self.index = faiss.index_factory(emb_size,
-                                             f"OPQ{subvector_num},IVF{ivf_centers_num},PQ{subvector_num}x{subvector_bits}",
-                                             self.index_metric)
-        elif index_method == 'ivf_pq':
-            self.index = faiss.index_factory(emb_size, f"IVF{ivf_centers_num},PQ{subvector_num}x{subvector_bits}",
-                                             self.index_metric)
-        elif index_method == 'opq':
-            self.index = faiss.index_factory(emb_size, f"OPQ{subvector_num},PQ{subvector_num}x{subvector_bits}",
-                                             self.index_metric)
-        elif index_method == 'pq':
-            self.index = faiss.index_factory(emb_size, f"PQ{subvector_num}x{subvector_bits}", self.index_metric)
+        if init_pooler_file is not None and os.path.exists(init_pooler_file):
+            dicts = torch.load(init_pooler_file)
+            self.pooler = Pooler(dicts['A'], dicts['b']).load_state_dict(dicts, strict=True)
 
-        self.index_method = index_method
-        self.ivf_centers_num = ivf_centers_num
-        self.subvector_num = subvector_num
-        self.is_trained = False
+        if encoder_config is not None and encoder_config.query_encoder_name_or_path is not None and encoder_config.doc_encoder_name_or_path is not None:
+            self.model = Model(encoder_config.query_encoder_name_or_path,
+                               encoder_config.doc_encoder_name_or_path)
+
+        if init_index_file is None or not os.path.exists(init_index_file):
+            if index_config.index_method == 'flat':
+                self.index = faiss.IndexFlatIP(emb_size) if index_config.dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
+            elif index_config.index_method == 'ivf':
+                quantizer = faiss.IndexFlatIP(emb_size) if index_config.dist_mode == 'ip' else faiss.IndexFlatL2(emb_size)
+                self.index = faiss.IndexIVFFlat(quantizer, emb_size, index_config.ivf_centers_num, self.index_metric)
+            elif index_config.index_method == 'ivf_opq':
+                self.index = faiss.index_factory(emb_size,
+                                                 f"OPQ{index_config.subvector_num},IVF{index_config.ivf_centers_num}," +
+                                                 f"PQ{index_config.subvector_num}x{index_config.subvector_bits}",
+                                                 self.index_metric)
+            elif index_config.index_method == 'ivf_pq':
+                self.index = faiss.index_factory(emb_size, f"IVF{index_config.ivf_centers_num}," +
+                                                           f"PQ{index_config.subvector_num}x{index_config.subvector_bits}",
+                                                 self.index_metric)
+            elif index_config.index_method == 'opq':
+                self.index = faiss.index_factory(emb_size, f"OPQ{index_config.subvector_num}," +
+                                                           f"PQ{index_config.subvector_num}x{index_config.subvector_bits}",
+                                                 self.index_metric)
+            elif index_config.index_method == 'pq':
+                self.index = faiss.index_factory(emb_size, f"PQ{index_config.subvector_num}x{index_config.subvector_bits}",
+                                                 self.index_metric)
+            self.is_trained = False
+        else:
+            self.index = faiss.read_index(init_index_file)
+            self.is_trained = True
+
+        self.index_method = index_config.index_method
+        self.ivf_centers_num = index_config.ivf_centers_num
+        self.subvector_num = index_config.subvector_num
 
         if doc_embeddings is not None:
             self.fit(doc_embeddings)
             self.add(doc_embeddings)
             self.is_trained = True
+
+    def train(self,
+              data: Datasets = None):
+        if data.doc_embeddings_dir is None:
+            if not self.model:
+                raise ValueError("Due to the lack of encoder, you cannot infer embedding")
+            elif self.encoder_config.is_finetune is False:
+                raise ValueError("Due to your encoder is not finetune, you can't use distill")
+            self.model.encode(datasets=data)
+
+        if self.is_trained is False:
+            doc_embeddings = np.memmap(data.doc_embeddings_dir,
+                                       dtype=np.float32, mode="r")
+            doc_embeddings = doc_embeddings.reshape(-1, data.emb_size)
+            if self.index_config.emb_size != data.emb_size:
+                with torch.no_grad():
+                    if not self.pooler:
+                        # training data
+                        mat = faiss.PCAMatrix(data.emb_size, self.index_config.emb_size)
+                        mat.train(doc_embeddings)
+                        assert mat.is_trained
+                        # print this to show that the magnitude of tr'search2 columns is decreasing
+                        b = faiss.vector_to_array(mat.b)
+                        A = faiss.vector_to_array(mat.A).reshape(mat.d_out, mat.d_in)
+                        self.pooler = Pooler(A, b)
+                        doc_embeddings = self.pooler(torch.Tensor(doc_embeddings.copy())).detach().cpu().numpy()
+                    else:
+                        doc_embeddings = self.pooler(torch.Tensor(doc_embeddings.copy())).detach().cpu().numpy()
+
+            self.fit(doc_embeddings)
+            self.add(doc_embeddings)
+            self.is_trained = True
+
+    def search_query(self, queries, docs_path, kValue: int = 20):
+        id2text = dict()
+        doc_id = dict()
+        docsFile = open(docs_path, 'r', encoding='UTF-8')
+        count = 0
+        for line in docsFile:
+            doc_id[count] = line.split('\t')[0]
+            id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
+            count += 1
+        docsFile.close()
+
+        input_data = self.model.text_tokenizer(queries, padding=True)
+        input_ids = torch.LongTensor(input_data['input_ids'])
+        attention_mask = torch.LongTensor(input_data['attention_mask'])
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
+        self.model.to(device)
+        with torch.no_grad():
+            query_embeddings = self.model.encoder.query_emb(input_ids, attention_mask).detach().cpu().numpy()
+        if self.pooler:
+            with torch.no_grad():
+                query_embeddings = torch.Tensor(query_embeddings.copy()).to(device)
+                self.pooler.to(device)
+                query_embeddings = self.pooler(query_embeddings).detach().cpu().numpy()
+        _, topk_ids = self.search(query_embeddings, kValue, nprobe=self.index_config.nprobe)
+        output_texts = []
+        output_ids = []
+        for ids in topk_ids:
+            temp_text = []
+            temp_id = []
+            for id in ids:
+                if id != -1:
+                    temp_text.append(id2text[id])
+                    temp_id.append(doc_id[id])
+            output_texts.append(temp_text)
+            output_ids.append(temp_id)
+        return output_texts, output_ids
+
+    @classmethod
+    def load_all(cls, load_path):
+        """
+
+        :param load_path: load all parameters from this path
+        :return:
+        """
+        index_config_file = os.path.join(load_path, 'index_config.json')
+        index_config = IndexConfig.load(index_config_file) if os.path.exists(index_config_file) else None
+        encoder_config_file = os.path.join(load_path, 'encoder_config.json')
+        encoder_config = EncoderConfig.load(encoder_config_file) if os.path.exists(encoder_config_file) else None
+        index_file = os.path.join(load_path, 'index.index')
+        pooler_file = os.path.join(load_path, 'pooler.pth')
+
+        index = cls(index_config, encoder_config, index_file, pooler_file)
+
+        if index.model:
+            encoder_file = os.path.join(load_path, 'encoder.bin')
+            if os.path.exists(encoder_file):
+                index.model.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
+        return index
+
+    def save_all(self, save_path):
+        """
+
+        :param save_path: save all parameters to this path
+        :return:
+        """
+        os.makedirs(save_path, exist_ok=True)
+        if self.index_config is not None: self.index_config.save(os.path.join(save_path, 'index_config.json'))
+        if self.encoder_config is not None: self.encoder_config.save(os.path.join(save_path, 'encoder_config.json'))
+        if self.index is not None: self.save_index(os.path.join(save_path, 'index.index'))
+        if self.model is not None: self.model.encoder.save(os.path.join(save_path, 'encoder.bin'))
+        if self.pooler is not None: self.pooler.save(os.path.join(save_path, 'pooler.pth'))
+
+    def get(self, data, file):
+        emb = np.memmap(file, dtype=np.float32, mode="r")
+        emb = emb.reshape(-1, data.emb_size)
+        if self.pooler:
+            with torch.no_grad():
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                emb = torch.Tensor(emb.copy()).to(device)
+                self.pooler.to(device)
+                emb = self.pooler(emb).detach().cpu().numpy()
+        return emb
 
     def fit(self, embeddings):
         if self.index_method != 'flat':

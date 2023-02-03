@@ -1,6 +1,5 @@
-from LibVQ.dataset import Datasets
-from LibVQ.dataset.preprocess import preprocess_data, generate_virtual_traindata
-from transformers import AutoTokenizer, AutoConfig
+from LibVQ.dataset import Datasets, preprocess_data
+from transformers import AutoTokenizer
 from LibVQ.inference import inference
 from LibVQ.models import TransformerModel, Encoder, Pooler
 from torch import nn

@@ -148,6 +148,7 @@ class DistillLearnableIndex(LearnableIndex):
             temp_checkpoint_path = self.get_temp_checkpoint_save_path()
             logging.info(f"The model will be saved into {temp_checkpoint_path}")
             checkpoint_path = temp_checkpoint_path
+            os.makedirs(temp_checkpoint_path, exist_ok=True)
 
         query_embeddings = self.load_embedding(query_embeddings, emb_size=emb_size)
         doc_embeddings = self.load_embedding(doc_embeddings, emb_size=emb_size)
@@ -251,6 +252,7 @@ class DistillLearnableIndex(LearnableIndex):
             temp_checkpoint_path = self.get_temp_checkpoint_save_path()
             logging.info(f"The model will be saved into {temp_checkpoint_path}")
             checkpoint_path = temp_checkpoint_path
+            os.makedirs(temp_checkpoint_path, exist_ok=True)
 
         doc_embeddings = self.load_embedding(doc_embeddings_file, emb_size=emb_size)
         if rel_file is None:

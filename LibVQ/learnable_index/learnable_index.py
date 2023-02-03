@@ -50,12 +50,8 @@ class LearnableIndex(FaissIndex):
         if init_index_file is None or not os.path.exists(init_index_file):
             self.is_trained = False
             logging.info(f"generating the init index by faiss")
-            faiss_index = FaissIndex(emb_size=index_config.emb_size,
-                                     ivf_centers_num=index_config.ivf_centers_num,
-                                     subvector_num=index_config.subvector_num,
-                                     subvector_bits=index_config.subvector_bits,
-                                     index_method=index_config.index_method,
-                                     dist_mode=index_config.dist_mode)
+            faiss_index = FaissIndex(index_config=index_config,
+                                     encoder_config=encoder_config)
             self.faiss = faiss_index
             # self.index = faiss_index.index
         else:
@@ -63,14 +59,16 @@ class LearnableIndex(FaissIndex):
             if index_config.index_backend == 'SPANN':
                 logging.info(f"loading the init SPANN index from {init_index_file}")
                 self.index = None
-                self.learnable_vq = LearnableVQ(index_config, init_index_file=init_index_file, init_index_type='SPANN',
+                self.learnable_vq = LearnableVQ(config=index_config,
+                                                init_index_file=init_index_file, init_index_type='SPANN',
                                                 index_method=index_config.index_method,
                                                 dist_mode=index_config.dist_mode)
             else:
                 logging.info(f"loading the init faiss index from {init_index_file}")
                 self.index = faiss.read_index(init_index_file)
 
-                self.learnable_vq = LearnableVQ(index_config, init_index_file=init_index_file,
+                self.learnable_vq = LearnableVQ(config=index_config,
+                                                init_index_file=init_index_file,
                                                 index_method=index_config.index_method,
                                                 dist_mode=index_config.dist_mode)
 
@@ -86,41 +84,6 @@ class LearnableIndex(FaissIndex):
                 self.learnable_vq.encoder = self.model.encoder
             if self.pooler:
                 self.learnable_vq.pooler = self.pooler
-
-    @classmethod
-    def load_all(cls, load_path):
-        """
-
-        :param load_path: load all parameters from this path
-        :return:
-        """
-        index_config_file = os.path.join(load_path, 'index_config.json')
-        index_config = IndexConfig.load(index_config_file) if os.path.exists(index_config_file) else None
-        encoder_config_file = os.path.join(load_path, 'encoder_config.json')
-        encoder_config = EncoderConfig.load(encoder_config_file) if os.path.exists(encoder_config_file) else None
-        index_file = os.path.join(load_path, 'learnable.index')
-        pooler_file = os.path.join(load_path, 'pooler.pth')
-
-        index = cls(index_config, encoder_config, index_file, pooler_file)
-
-        if index.model:
-            encoder_file = os.path.join(load_path, 'encoder.bin')
-            if os.path.exists(encoder_file):
-                index.model.encoder.load_state_dict(torch.load(encoder_file, map_location='cpu'))
-        return index
-
-    def save_all(self, save_path):
-        """
-
-        :param save_path: save all parameters to this path
-        :return:
-        """
-        os.makedirs(save_path, exist_ok=True)
-        if self.index_config is not None: self.index_config.save(os.path.join(save_path, 'index_config.json'))
-        if self.encoder_config is not None: self.encoder_config.save(os.path.join(save_path, 'encoder_config.json'))
-        if self.index is not None: self.save_index(os.path.join(save_path, 'learnable.index'))
-        if self.model is not None: self.model.encoder.save(os.path.join(save_path, 'encoder.bin'))
-        if self.pooler is not None: self.pooler.save(os.path.join(save_path, 'pooler.pth'))
 
     def faiss_train(self, data: Datasets = None):
         if self.is_trained is False:
@@ -158,7 +121,8 @@ class LearnableIndex(FaissIndex):
             self.faiss.save_index(init_index_file)
             self.index = self.faiss.index
             # del self.faiss
-            self.learnable_vq = LearnableVQ(self.index_config, init_index_file=init_index_file,
+            self.learnable_vq = LearnableVQ(config=self.index_config,
+                                            init_index_file=init_index_file,
                                             index_method=self.index_config.index_method,
                                             dist_mode=self.index_config.dist_mode)
 
@@ -265,7 +229,7 @@ class LearnableIndex(FaissIndex):
                 d_emb = doc_embeddings.copy()
                 d_e = list()
                 for i in range(0, len(d_emb), 2048):
-                    d_temp = torch.Tensor(d_emb[i:min(i+2048, len(d_emb))]).to(device)
+                    d_temp = torch.Tensor(d_emb[i:min(i + 2048, len(d_emb))]).to(device)
                     d_e.append(self.pooler(d_temp).detach().cpu().numpy())
                 doc_embeddings = np.concatenate(d_e)
         self.index.remove_ids(faiss.IDSelectorRange(0, len(doc_embeddings)))
@@ -316,52 +280,4 @@ class LearnableIndex(FaissIndex):
               ):
         raise NotImplementedError
 
-    def search_query(self, queries, data, kValue: int = 20):
-        id2text = dict()
-        doc_id = dict()
-        docsFile = open(data.docs_path, 'r', encoding='UTF-8')
-        count = 0
-        for line in docsFile:
-            doc_id[count] = line.split('\t')[0]
-            id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
-            count += 1
-        docsFile.close()
 
-        input_data = self.model.text_tokenizer(queries, padding=True)
-        input_ids = torch.LongTensor(input_data['input_ids'])
-        attention_mask = torch.LongTensor(input_data['attention_mask'])
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        input_ids = input_ids.to(device)
-        attention_mask = attention_mask.to(device)
-        self.model.to(device)
-        with torch.no_grad():
-            query_embeddings = self.model.encoder.query_emb(input_ids, attention_mask).detach().cpu().numpy()
-        if self.pooler:
-            with torch.no_grad():
-                query_embeddings = torch.Tensor(query_embeddings.copy()).to(device)
-                self.pooler.to(device)
-                query_embeddings = self.pooler(query_embeddings).detach().cpu().numpy()
-        _, topk_ids = self.search(query_embeddings, kValue, nprobe=self.index_config.nprobe)
-        output_texts = []
-        output_ids = []
-        for ids in topk_ids:
-            temp_text = []
-            temp_id = []
-            for id in ids:
-                if id != -1:
-                    temp_text.append(id2text[id])
-                    temp_id.append(doc_id[id])
-            output_texts.append(temp_text)
-            output_ids.append(temp_id)
-        return output_texts, output_ids
-
-    def get(self, data, file):
-        emb = np.memmap(file, dtype=np.float32, mode="r")
-        emb = emb.reshape(-1, data.emb_size)
-        if self.pooler:
-            with torch.no_grad():
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                emb = torch.Tensor(emb.copy()).to(device)
-                self.pooler.to(device)
-                emb = self.pooler(emb).detach().cpu().numpy()
-        return emb

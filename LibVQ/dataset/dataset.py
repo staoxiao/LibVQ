@@ -275,7 +275,7 @@ class Datasets():
 
         if file_path in ['MSMARCO']:
             if not os.path.exists(file_path):
-                raise ValueError("Please read example/MSMARCO/REARME.md to prepare_embedding the dataset MSMARCO")
+                raise ValueError("Please read example/MSMARCO/REARME.md to prepare_data the dataset MSMARCO")
 
         dirs = os.listdir(file_path)
         self.docs_path = os.path.join(file_path, 'collection.tsv') if 'collection.tsv' in dirs else None
@@ -283,10 +283,27 @@ class Datasets():
         self.train_rels_path = os.path.join(file_path, 'train-rels.tsv') if 'train-rels.tsv' in dirs else None
         self.dev_queries_path = os.path.join(file_path, 'dev-queries.tsv') if 'dev-queries.tsv' in dirs else None
         self.dev_rels_path = os.path.join(file_path, 'dev-rels.tsv') if 'dev-rels.tsv' in dirs else None
-        self.doc_embeddings_dir = os.path.join(os.path.join(file_path, 'docs.memmap')) if 'docs.memmap' in dirs else None
-        self.train_queries_embedding_dir = os.path.join(os.path.join(file_path, 'train-queries.memmap')) if 'train-queries.memmap' in dirs else None
-        self.dev_queries_embedding_dir = os.path.join(os.path.join(file_path, 'dev-queries.memmap')) if 'dev-queries.memmap' in dirs else None
+        self.doc_embeddings_dir = os.path.join(
+            os.path.join(file_path, 'docs.memmap')) if 'docs.memmap' in dirs else None
+        self.train_queries_embedding_dir = os.path.join(
+            os.path.join(file_path, 'train-queries.memmap')) if 'train-queries.memmap' in dirs else None
+        self.dev_queries_embedding_dir = os.path.join(
+            os.path.join(file_path, 'dev-queries.memmap')) if 'dev-queries.memmap' in dirs else None
         self.emb_size = emb_size
+
+        if os.path.exists(embedding_dir) and os.path.exists(preprocess_dir):
+            preprocess_dirs = os.listdir(preprocess_dir)
+            embedding_dirs = os.listdir(embedding_dir)
+            self.train_rels_path = os.path.join(
+                preprocess_dir, 'train-rels.tsv') if 'train-rels.tsv' in preprocess_dirs else None
+            self.dev_rels_path = os.path.join(
+                preprocess_dir, 'dev-rels.tsv') if 'dev-rels.tsv' in preprocess_dirs else None
+            self.doc_embeddings_dir = os.path.join(
+                os.path.join(embedding_dir, 'docs.memmap')) if 'docs.memmap' in embedding_dirs else None
+            self.train_queries_embedding_dir = os.path.join(os.path.join(
+                embedding_dir, 'train-queries.memmap')) if 'train-queries.memmap' in embedding_dirs else None
+            self.dev_queries_embedding_dir = os.path.join(
+                os.path.join(embedding_dir, 'dev-queries.memmap')) if 'dev-queries.memmap' in embedding_dirs else None
 
         if self.docs_path is None and self.doc_embeddings_dir is None:
             raise ValueError("you must have at least one doc file 'collection.tsv' or 'docs.memmap'")
