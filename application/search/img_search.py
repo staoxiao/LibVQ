@@ -10,15 +10,19 @@ def img_search(queries, index, file, model, processor, kValue = 20):
     outputs = model(**inputs)
     query_embeddings = outputs.text_embeds.detach().numpy()
 
-    id2img = dict()
-    img_id = dict()
-    imgsFile = open(file, 'r', encoding='UTF-8')
-    count = 0
-    for line in imgsFile:
-        img_id[count] = line.split('\t')[0]
-        id2img[count] = line.strip('\n').split('\t')[1]
-        count += 1
-    imgsFile.close()
+    if isinstance(file, str):
+        id2img = dict()
+        img_id = dict()
+        imgsFile = open(file, 'r', encoding='UTF-8')
+        count = 0
+        for line in imgsFile:
+            img_id[count] = line.split('\t')[0]
+            id2img[count] = ' '.join(line.strip('\n').split('\t')[1:])
+            count += 1
+        imgsFile.close()
+    else:
+        id2img = file[0]
+        img_id = file[1]
 
     _, topk_ids = index.search(query_embeddings, kValue, nprobe=index.index_config.nprobe)
     output_imgs = []

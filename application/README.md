@@ -9,7 +9,7 @@ We offer five different applications, which are search, duplication detection, e
 
 Download data and convert to our format:
 ```
-bash ./prepare_data/download_msmarco_data.sh
+bash ./utils/prepare_data/download_msmarco_data.sh
 ```
 The data will be saved into `./data/MSMARCO`.
 
@@ -20,7 +20,7 @@ Download data and convert to our format:
 ```
 pip install pycocotools
 pip install Pillow
-bash ./prepare_data/download_mscoco_data.sh
+bash ./utils/prepare_data/download_mscoco_data.sh
 ```
 
 The data will be saved into `./data/MSCOCO`.
@@ -30,7 +30,7 @@ The data will be saved into `./data/MSCOCO`.
 Download data and convert to our format:
 
 ```
-bash ./prepare_data/download_quora_data.sh
+bash ./utils/prepare_data/download_quora_data.sh
 ```
 
 The data will be saved into `./data/quora`.
@@ -41,7 +41,7 @@ Download data and convert to our format:
 
 ```
 pip install scikit-learn
-bash ./prepare_data/download_20newsgroups_data.sh
+bash ./utils/prepare_data/download_20newsgroups_data.sh
 ```
 
 The data will be saved into `./data/20newsgroups`.
@@ -54,7 +54,7 @@ We build index by the following method:
 distill learnable index
 
 ```
-python ./prepare_index/test_distillLearnableIndex.py \
+python ./utils/prepare_index/test_distillLearnableIndex.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -68,7 +68,7 @@ python ./prepare_index/test_distillLearnableIndex.py \
 ```
 if your data_emb_size != index_emb_size:
 ```
-python ./prepare_index/test_distillLearnableIndex.py \
+python ./utils/prepare_index/test_distillLearnableIndex.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -84,7 +84,7 @@ python ./prepare_index/test_distillLearnableIndex.py \
 contrastive learnable index
 
 ```
-python ./prepare_index/test_contrastiveLearnableIndex.py \
+python ./utils/prepare_index/test_contrastiveLearnableIndex.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -100,7 +100,7 @@ python ./prepare_index/test_contrastiveLearnableIndex.py \
 distill learnable index with encoder
 
 ```
-python ./prepare_index/test_distillLearnableIndexWithEncoder.py \
+python ./utils/prepare_index/test_distillLearnableIndexWithEncoder.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -116,7 +116,7 @@ python ./prepare_index/test_distillLearnableIndexWithEncoder.py \
 contrastive learnable index with encoder
 
 ```
-python ./prepare_index/test_contrastiveLearnableIndexWithEncoder.py \
+python ./utils/prepare_index/test_contrastiveLearnableIndexWithEncoder.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -132,7 +132,7 @@ python ./prepare_index/test_contrastiveLearnableIndexWithEncoder.py \
 auto index
 
 ```
-python ./prepare_index/test_autoIndex.py \
+python ./utils/prepare_index/test_autoIndex.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -148,7 +148,7 @@ python ./prepare_index/test_autoIndex.py \
 faiss index
 
 ```
-python ./prepare_index/test_faiss.py \
+python ./utils/prepare_index/test_faiss.py \
 --data_dir ./data/MSMARCO \
 --index_method pq \
 --subvector_num 64 \
@@ -165,7 +165,7 @@ python ./prepare_index/test_faiss.py \
 distill learnable index
 
 ```
-python ./prepare_index/test_distillLearnableIndex.py \
+python ./utils/prepare_index/test_distillLearnableIndex.py \
 --data_dir ./data/MSCOCO/embedding \
 --data_emb_size 512 \
 --index_method opq \
@@ -181,7 +181,7 @@ python ./prepare_index/test_distillLearnableIndex.py \
 distill learnable index
 
 ```
-python ./prepare_index/test_distillLearnableIndex.py  \
+python ./utils/prepare_index/test_distillLearnableIndex.py  \
 --data_dir ./data/quora \
 --index_method pq \
 --subvector_num 64 \
@@ -199,7 +199,7 @@ python ./prepare_index/test_distillLearnableIndex.py  \
 distill learnable index
 
 ```
-python ./prepare_index/test_distillLearnableIndex.py \
+python ./utils/prepare_index/test_distillLearnableIndex.py \
 --data_dir ./data/20newsgroups \
 --data_emb_size 768 \
 --index_method ivf \
@@ -288,7 +288,7 @@ python ./evaluate/test_evaluate.py \
 Download data and convert to our format:
 
 ```
-bash ./prepare_data/download_msmarco_data.sh
+bash ./utils/prepare_data/download_msmarco_data.sh
 ```
 
 The data will be saved into `./data/MSMARCO`.
@@ -300,7 +300,7 @@ Download data and convert to our format:
 ```
 pip install pycocotools
 pip install Pillow
-bash ./prepare_data/download_mscoco_data.sh
+bash ./utils/prepare_data/download_mscoco_data.sh
 ```
 
 The data will be saved into `./data/MSCOCO`.
@@ -310,7 +310,7 @@ The data will be saved into `./data/MSCOCO`.
 Download data and convert to our format:
 
 ```
-bash ./prepare_data/download_quora_data.sh
+bash ./utils/prepare_data/download_quora_data.sh
 ```
 
 The data will be saved into `./data/quora`.
@@ -321,7 +321,7 @@ Download data and convert to our format:
 
 ```
 pip install scikit-learn
-bash ./prepare_data/download_20newsgroups_data.sh
+bash ./utils/prepare_data/download_20newsgroups_data.sh
 ```
 
 The data will be saved into `./data/20newsgroups`.
@@ -505,8 +505,8 @@ print(answer_id)
 The result maybe follow:
 
 ```bash
-[['What food the children should not buy for eat?', "What are some types of food that aren't sold in a fast food practice restaurant but should be?", 'What foods or ingredients should I never eat?', 'What can hamsters eat besides hamster food?', 'What can hamsters eat besides hamster food?', 'What can hamsters eat besides hamster food?', 'What can hamsters eat besides hamster food?', 'What can hamsters eat besides hamster food?', 'What can hamsters eat besides hamster food?', 'Why should we not eat eggs?', 'What is lowest calorie food?', "What are didn't eat and only drank water?", 'What are the foods one should stop eating?', 'What If not, specifically why not?', 'What foods fibre?', 'What modern foods are considered to be aphrodisiacs?', 'What modern foods are considered to be aphrodisiacs?', 'What some food vendors accept EBT cards?', 'Which are the lowest calorie foods?', 'Which are the lowest calorie foods?'], ['Will oil prices go back up?', 'Will oil prices go back up?', 'Will oil prices go back up?', 'Who sets the price for my game on Steam?', 'Why does the price of oil keep down?', 'What determines the price of drugs?', 'How quality is Goku?', 'What are some ways of fixing a crooked smile?', "What's unit and supplying parts to OEMS . OEMS have fixed the price till the product life . and no increase?", 'What are some costs of owning a ferret?', 'price of something', 'How are goods and services rationed if there is a price ceiling?', 'How do you fix a bad circuit breaker?', 'Is Kubo and the two strings Good?', 'How much does it cost to repair a laptop screen?', 'What is the expectations from share market? Will it tank down further below and if it sinks then by what time?', 'What are some of the Pokemon go hacks?', 'What are some of the Pokemon go hacks?', 'How price and output will be determined in a monopoly? Is it true that monopoly price will always be higher than the perfect competitive price?', 'What is difference between grounding and neutral?']]
-[['38394', '166837', '136841', '107264', '108400', '145812', '95847', '51954', '39032', '81271', '27671', '163190', '140432', '159576', '147099', '108246', '19886', '151382', '75010', '31267'], ['100873', '5050', '60569', '141252', '169333', '68712', '164900', '107557', '156660', '109377', '155371', '72691', '94350', '72885', '89658', '134313', '113954', '109285', '11545', '85991']]
+[["What are some types of food that aren't sold in a fast food practice restaurant but should be?", 'Can eat peanut butter? Why or why not?', 'What is the some tasty yet healthy foods?', 'What food the children should not buy for eat?', "What healthy items are there company to eat that aren't salad?", 'What are the foods one should stop eating?', 'What foods or ingredients should I never eat?', 'What are the things not available online?', 'What is are not in the EU?', 'What can hamsters eat besides hamster food?', 'What are c/c++ healthiest non-vegetable foods?', 'What are non-examples of proteins?', "What are didn't eat and only drank water?", 'What is the unhealthiest food in the world?', "Which cultures don't kiss?", 'What are some best tasty yet healthy foods?', 'What are some examples of non-antihistamine allergy medicine?', 'Eggs are veg or non veg?', 'What is NOT made in China?', 'What is the best diet without vegetables?', 'What is not?', 'What is lowest calorie food?', "What was your favorite brand of cereal that isn't made anymore?", 'What can a eat no protein for a month?', "What are some banks that don't use Chexsystems?", 'What moscow things which dissolve in milk but do not dissolve in water?', 'What think diets are useful or not?', "What's the not fenoboci diet plan?", 'What fast food really food?', 'What are the food groups?'], ['Does shoplifting raise the price of items?', 'Will oil prices go back up?', 'How are goods and services rationed if there is a price ceiling?', "What is Barnes and Noble's price match wouldn policy?", 'What are the difference between value and price?', 'Why does improve the price mechanism work?', 'Is it true that trends come and go?', 'Will pricing agreement?', 'What is the difference between price, determine cost and rate?', 'Why does the price of oil keep down?', 'How is price mechanism to allocate resources?', 'What is the whom difference between price, cost and rate?', 'Is it hacks?', 'Is Korea go?', 'What are the expensive than other vendors?', 'Can I Goku?', 'Are there more charge? Is there a way to fix it?', 'What is melting fix?', 'What was Go?', 'How do I fix my reputation?', 'What makes you is the sticky prices theory?', 'Is it worth it to fix teeth gap?', 'What are some ways of fixing a crooked smile?', 'How expensive is kendo equipment?', 'How can you fix a damaged computer screen?', 'How much does it cost to fix an iPad screen?', 'Is corruption good for economics?', 'What are the for assisted living facilities cost?', 'What goes up and never comes down?', 'Which is the costliest car in the world?']]
+[['105468', '109543', '169848', '29995', '171631', '83174', '81565', '41259', '139166', '30411', '193775', '68816', '101887', '69820', '20190', '114534', '62318', '84319', '111862', '139663', '189732', '22671', '32766', '121454', '42375', '111194', '110105', '191064', '87197', '157999'], ['162245', '4841', '50159', '111416', '38100', '160279', '39975', '179506', '117085', '107916', '136082', '94218', '89684', '169489', '195612', '185335', '144166', '118233', '140580', '67229', '196701', '21630', '68103', '26977', '59928', '40318', '28330', '193151', '57787', '70010']]
 ```
 
 ### embedding compression

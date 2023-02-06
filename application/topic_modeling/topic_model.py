@@ -207,7 +207,7 @@ def get_doc_emb(docs, parameters_path):
     index = FaissIndex.load_all(parameters_path)
     if isinstance(docs, str):
         docs = [docs]
-    input_data = index.model.text_tokenizer(docs, padding=True)
+    input_data = index.model.text_tokenizer(docs, padding=True, truncation=True)
     input_ids = torch.LongTensor(input_data['input_ids'])
     attention_mask = torch.LongTensor(input_data['attention_mask'])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

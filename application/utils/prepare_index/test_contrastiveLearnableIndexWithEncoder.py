@@ -1,10 +1,10 @@
 import sys
-sys.path.append('./')
+sys.path.append('/')
 
 from LibVQ.dataset import Datasets
 from LibVQ.base_index import IndexConfig
 from LibVQ.models import EncoderConfig
-from LibVQ.learnable_index import AutoIndex
+from LibVQ.learnable_index import ContrastiveLearnableIndexWithEncoder
 
 from transformers import HfArgumentParser
 from arguments import IndexArguments, DataArguments, ModelArguments, TrainingArguments
@@ -25,7 +25,7 @@ if __name__ == '__main__':
                                    doc_encoder_name_or_path=model_args.doc_encoder_name_or_path,
                                    query_encoder_name_or_path=model_args.query_encoder_name_or_path)
 
-    index = AutoIndex.get_index(index_config, encoder_config, data)
+    index = ContrastiveLearnableIndexWithEncoder(index_config, encoder_config)
     index.train(data=data,
                 temperature=training_args.temperature,
                 max_grad_norm=training_args.max_grad_norm,

@@ -124,17 +124,21 @@ class FaissIndex(BaseIndex):
             self.is_trained = True
 
     def search_query(self, queries, docs_path, kValue: int = 20):
-        id2text = dict()
-        doc_id = dict()
-        docsFile = open(docs_path, 'r', encoding='UTF-8')
-        count = 0
-        for line in docsFile:
-            doc_id[count] = line.split('\t')[0]
-            id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
-            count += 1
-        docsFile.close()
+        if isinstance(docs_path, str):
+            id2text = dict()
+            doc_id = dict()
+            docsFile = open(docs_path, 'r', encoding='UTF-8')
+            count = 0
+            for line in docsFile:
+                doc_id[count] = line.split('\t')[0]
+                id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
+                count += 1
+            docsFile.close()
+        else:
+            id2text = docs_path[0]
+            doc_id = docs_path[1]
 
-        input_data = self.model.text_tokenizer(queries, padding=True)
+        input_data = self.model.text_tokenizer(queries, padding=True, truncation=True)
         input_ids = torch.LongTensor(input_data['input_ids'])
         attention_mask = torch.LongTensor(input_data['attention_mask'])
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
