@@ -116,15 +116,15 @@ class Quantization(nn.Module):
             vecs = self.rotate_vec(vecs)
         return vecs
 
-def get_emb(query, parameters_path):
+def get_emb(docs, parameters_path):
     encoder_config_file = os.path.join(parameters_path, 'encoder_config.json')
     if not os.path.exists(encoder_config_file):
         print('You should provide ' + encoder_config_file)
         return None
     index = FaissIndex.load_all(parameters_path)
-    if isinstance(query, str):
-        query = [query]
-    input_data = index.model.text_tokenizer(query, padding=True, truncation=True)
+    if isinstance(docs, str):
+        docs = [docs]
+    input_data = index.model.text_tokenizer(docs, padding=True, truncation=True)
     input_ids = torch.LongTensor(input_data['input_ids'])
     attention_mask = torch.LongTensor(input_data['attention_mask'])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

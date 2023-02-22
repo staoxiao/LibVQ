@@ -109,10 +109,12 @@ def evaluate(retrieve_results: List[List[int]],
     print(f"{len(ranking)} matching queries found")
     MRR = [x / len(ranking) for x in MRR]
     for i, k in enumerate(MRR_cutoffs):
-        print(f'MRR@{k}:{MRR[i]}')
+        # print(f'MRR@{k}:{MRR[i]}')
+        print(f'MRR@{k}:', '%.4f' % MRR[i])
 
     Recall = [x / len(ranking) for x in Recall]
     for i, k in enumerate(Recall_cutoffs):
-        print(f'Recall@{k}:{Recall[i]}')
+        # print(f'Recall@{k}:{Recall[i]}')
+        print(f'Recall@{k}:', '%.4f' % Recall[i])
 
     return MRR, Recall

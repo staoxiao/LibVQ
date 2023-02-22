@@ -25,13 +25,19 @@ class Model(nn.Module):
                batch_size: int = 512,
                save_to_memmap: bool = True):
         # preprocess
-        preprocess_data(data_dir=datasets.file_path,
-                        output_dir=datasets.preprocess_dir,
-                        text_tokenizer=self.text_tokenizer,
-                        add_cls_tokens=add_cls_tokens,
-                        max_doc_length=datasets.max_doc_length,
-                        max_query_length=datasets.max_query_length,
-                        workers_num=works_num)
+        preprocess_flag = True
+        if os.path.exists(datasets.preprocess_dir):
+            files = os.listdir(datasets.preprocess_dir)
+            if len(files) > 0:
+                preprocess_flag = False
+        if preprocess_flag:
+            preprocess_data(data_dir=datasets.file_path,
+                            output_dir=datasets.preprocess_dir,
+                            text_tokenizer=self.text_tokenizer,
+                            add_cls_tokens=add_cls_tokens,
+                            max_doc_length=datasets.max_doc_length,
+                            max_query_length=datasets.max_query_length,
+                            workers_num=works_num)
         if datasets.emb_size is None:
             params = self.encoder.query_encoder.parameters()
             for last in params:

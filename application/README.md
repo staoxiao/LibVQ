@@ -157,7 +157,7 @@ python ./utils/prepare_index/test_faiss.py \
 --is_finetune True \
 --doc_encoder_name_or_path Shitao/RetroMAE_MSMARCO_distill \
 --query_encoder_name_or_path Shitao/RetroMAE_MSMARCO_distill \
---save_path ./data/MSMARCO/parameters
+--save_path ./data/MSMARCO/faiss_parameters
 ```
 
 #### MSCOCO index
@@ -272,12 +272,25 @@ python ./topic_modeling/topic_use.py \
 
 To use the search function here, you must have built the index, and then pass in the save path of the parameters of index
 
+**if you are using learnable index:**
+
 ```
-python ./evaluate/test_evaluate.py \
+python ./evaluate/test_learnable_evaluate.py \
 --data_dir ./data/MSMARCO \
 --data_emb_size 768 \
 --save_path ./data/MSMARCO/parameters
 ```
+
+**if you are using faiss index:**
+
+```
+python ./evaluate/test_faiss_evaluate.py \
+--data_dir ./data/MSMARCO \
+--data_emb_size 768 \
+--save_path ./data/MSMARCO/faiss_parameters
+```
+
+
 
 ## Quick Started
 
@@ -447,8 +460,9 @@ from LibVQ.learnable_index import LearnableIndex
 from LibVQ.dataset import Datasets
 
 index = LearnableIndex.load_all('./data/MSMARCO/parameters')
+index.build('data/MSMARCO/collection.tsv')
 query = ['what is paranoid sc', 'what is mean streaming']
-answer, answer_id = index.search_query(query, './data/MSMARCO/collection.tsv')
+answer, answer_id = index.search_query(query)
 print(answer)
 print(answer_id)
 ```
@@ -470,13 +484,14 @@ from LibVQ.learnable_index import LearnableIndex
 from transformers import CLIPProcessor, CLIPModel
 
 index = LearnableIndex.load_all('./data/MSCOCO/embedding/parameters')
-
+index.build('data/MSCOCO/collection.tsv')
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 query = ['a man falls off his skateboard in a skate park.', 'A woman standing next to a  brown and white dog.']
 answer, answer_id = img_search(query,
-                               index, './data/MSCOCO/embedding/collection.tsv',
-                               model, processor)
+                               index,
+                               model, 
+                               processor)
 print(answer)
 print(answer_id)
 ```
@@ -594,14 +609,14 @@ import sys
 sys.path.append('./')
 from topic_modeling.topic_model import TopicModel, get_documents
 
-documents, documents_count, single_documents, correspodent_id = get_documents('data/20newsgroups/collection.tsv', 'data/20newsgroups/parameters/index.index')
+source_documents = get_documents('data/20newsgroups/collection.tsv', 'data/20newsgroups/parameters/index.index')
 ```
 
 And then we can extracting topics:
 
 ```python
 topic_model = TopicModel()
-topic_model.fit(documents, documents_count, single_documents, correspodent_id)
+topic_model.fit(source_documents)
 topic_model.save('topic.idx')
 topic_model = TopicModel.load('topic.idx')
 ```
@@ -672,9 +687,9 @@ We can also get single document info
 
 We can find documents' topic
 ```python
->>> from topic_modeling.topic_model import get_doc_emb, find_nearest_topic
+>>> from topic_modeling.topic_model import get_doc_emb
 >>> doc_emb = get_doc_emb(["I need help getting my ZX-11 (C3) to behave.  I've managed to get the front suspension to be very happy, but the rear sucks.  I can't do anything with it to make it feel ok.  The bike is very stable through the corners (I think because I have the front just right), but when the straights get bumpy the rear is torturous.  It feels like it actually amplifies the bumps.  And the damping doesn't seem to do anything in real-life, although you can tell the difference when the bike isn't moving. ", "Does anyone know how to zap the PRAM on the Duo 230. Inaddition I have recently noticed that checking the ram left in the finder on the duo 230 4/80  reveals the normal 1800K for the system file but only about 1/10 to 1/5 of the bar is actually highlighted implying that only 2-300K is being used for the system. What gives? I have had no crashes yet or other software problem..."], 'parameters')
->>> topic_id = find_nearest_topic(doc_emb, 'data/20newsgroups/parameters/index.index')
+>>> topic_id = topic_model.find_nearest_topic(doc_emb, 'data/20newsgroups/parameters/index.index')
 >>> for id in topic_id:
 >>>     print(topic_model.get_topic(id))
 {'bike': 0.2652861384691311, 'like': 0.10817736016444385, 'ride': 0.09037501145302947, 'riding': 0.08319375563968086, 'time': 0.08052831019029406, 'right': 0.07679211918044566, 'bikes': 0.07336028128670935, 'know': 0.06915454387219022, 've': 0.06801980875747027, 'good': 0.06418679267489456}
@@ -682,6 +697,8 @@ We can find documents' topic
 ```
 
 ### evaluate
+
+**if you are using learnable index:**
 
 We can observe indicators by the following methods:
 
@@ -695,7 +712,7 @@ index = LearnableIndex.load_all('./data/MSMARCO/parameters')
 # MRR and RECALL
 from LibVQ.dataset.dataset import load_rel
 if data.dev_queries_embedding_dir is not None:
-	dev_query = index.get(data, data.dev_queries_embedding_dir)
+	dev_query = index.get_emb(data, data.dev_queries_embedding_dir)
 	ground_truths = load_rel(data.dev_rels_path)
 	index.test(dev_query, ground_truths, topk=1000, batch_size=64,
 	MRR_cutoffs=[5, 10, 20, 50, 100], Recall_cutoffs=[5, 10, 20, 50, 100],
@@ -718,28 +735,115 @@ Recall@20:0.6505730659025789
 Recall@50:0.7340019102196753
 Recall@100:0.783440783190067
 ```
+**if you are using faiss index:**
 
-**The different result can be viewed as follow:**
+```python
+from LibVQ.dataset import Datasets
+from LibVQ.base_index import FaissIndex
+from LibVQ.dataset.dataset import load_rel
 
-**The normal result**：
+data = Datasets('./data/MSMARCO', emb_size=768, new_query=False)
+index = FaissIndex.load_all('./data/MSMARCO/faiss_parameters')
+# MRR and RECALL
+from LibVQ.dataset.dataset import load_rel
+if data.dev_queries_embedding_dir is not None:
+	dev_query = index.get_emb(data, data.dev_queries_embedding_dir)
+	ground_truths = load_rel(data.dev_rels_path)
+	index.test(dev_query, ground_truths, topk=1000, batch_size=64,
+	MRR_cutoffs=[5, 10, 20, 50, 100], Recall_cutoffs=[5, 10, 20, 50, 100],
+				nprobe=index_config.nprobe)
+```
+**The evaluation result may be as follow:**
 
-index method: ivfpq
+PQ bits per code book=8
 
-ivf_centers_num:10000
+|              index&num of codebooks               | MRR@5  | MRR@10 | MRR@20 | MRR@50 | MRR@100 | RECALL@5 | RECALL@10 | RECALL@20 | RECALL@50 | RECALL@100 |
+| :-----------------------------------------------: | :----: | :----: | :----: | :----: | :-----: | :------: | :-------: | :-------: | :-------: | :--------: |
+|                     faiss&16                      | 0.0114 | 0.0131 | 0.0146 | 0.0160 | 0.0167  |  0.0220  |  0.0346   |  0.0555   |  0.0995   |   0.1487   |
+|          contrastive learnable index&16           | 0.1856 | 0.1971 | 0.2032 | 0.2067 | 0.2077  |  0.2861  |  0.3715   |  0.4580   |  0.5647   |   0.6383   |
+|            distill learnable index&16             | 0.1914 | 0.2025 | 0.2085 | 0.2121 | 0.2131  |  0.2944  |  0.3760   |  0.4608   |  0.5690   |   0.6399   |
+|    contrastive learnable index with encoder&16    | 0.2015 | 0.2155 | 0.2219 | 0.2261 | 0.2272  |  0.3226  |  0.4249   |  0.5165   |  0.6432   |   0.7250   |
+|      distill learnable index with encoder&16      | 0.2033 | 0.2169 | 0.2236 | 0.2277 | 0.2289  |  0.3197  |  0.4201   |  0.5140   |  0.6423   |   0.7270   |
+| distill learnable index with encoder--no label&16 | 0.1361 | 0.1465 | 0.1518 | 0.1554 | 0.1567  |  0.2154  |  0.2913   |  0.3674   |  0.4789   |   0.5662   |
+|                     faiss&64                      | 0.2588 | 0.2732 | 0.2807 | 0.2843 | 0.2853  |  0.4150  |  0.5227   |  0.6281   |  0.7394   |   0.8091   |
+|          contrastive learnable index&64           | 0.3410 | 0.3573 | 0.3642 | 0.3673 | 0.3681  |  0.5180  |  0.6394   |  0.7354   |  0.8358   |   0.8899   |
+|            distill learnable index&64             | 0.3438 | 0.3602 | 0.3669 | 0.3701 | 0.3709  |  0.5235  |  0.6450   |  0.7412   |  0.8411   |   0.8935   |
+|    contrastive learnable index with encoder&64    | 0.3536 | 0.3700 | 0.3770 | 0.3802 | 0.3809  |  0.5324  |  0.6548   |  0.7544   |  0.8527   |   0.9055   |
+|      distill learnable index with encoder&64      | 0.3507 | 0.3674 | 0.3744 | 0.3776 | 0.3783  |  0.5324  |  0.6554   |  0.7557   |  0.8556   |   0.9051   |
+| distill learnable index with encoder--no label&64 | 0.3632 | 0.3797 | 0.3865 | 0.3895 | 0.3902  |  0.5418  |  0.6631   |  0.7615   |  0.8550   |   0.9050   |
 
-subvector_num:64
 
-subvector_bits:8
 
-nprobe:100
+OPQ bits per code book=8
 
-|                          | MRR@5  | MRR@20 | RECALL@5 | RECALL@20 | RECALL@100 |
-| ------------------------ | ------ | ------ | -------- | --------- | ---------- |
-| faiss                    | 0.2423 | 0.2627 | 0.3770   | 0.5713    | 0.7281     |
-| contrastive              | 0.3067 | 0.3265 | 0.4619   | 0.6488    | 0.7811     |
-| distill                  | 0.3101 | 0.3303 | 0.4642   | 0.6506    | 0.7834     |
-| contrastive with encoder | 0.3223 | 0.3437 | 0.4908   | 0.6957    | 0.8419     |
-| distill with encoder     | 0.3252 | 0.3471 | 0.4928   | 0.6979    | 0.8426     |
+|              index&num of codebooks               | MRR@5  | MRR@10 | MRR@20 | MRR@50 | MRR@100 | RECALL@5 | RECALL@10 | RECALL@20 | RECALL@50 | RECALL@100 |
+| :-----------------------------------------------: | :----: | :----: | :----: | :----: | :-----: | :------: | :-------: | :-------: | :-------: | :--------: |
+|                     faiss&16                      | 0.1503 | 0.1623 | 0.1686 | 0.1725 | 0.1738  |  0.2490  |  0.3375   |  0.4271   |  0.5479   |   0.6333   |
+|          contrastive learnable index&16           | 0.2725 | 0.2876 | 0.2940 | 0.2976 | 0.2985  |  0.4230  |  0.5335   |  0.6248   |  0.7338   |   0.7983   |
+|            distill learnable index&16             | 0.2760 | 0.2910 | 0.2974 | 0.3010 | 0.3019  |  0.4262  |  0.5358   |  0.6275   |  0.7384   |   0.8038   |
+|    contrastive learnable index with encoder&16    | 0.2808 | 0.2962 | 0.3034 | 0.3070 | 0.3080  |  0.4406  |  0.5536   |  0.6566   |  0.7691   |   0.8365   |
+|      distill learnable index with encoder&16      | 0.2806 | 0.2961 | 0.3031 | 0.3068 | 0.3077  |  0.4396  |  0.5545   |  0.6543   |  0.7691   |   0.8334   |
+| distill learnable index with encoder--no label&16 | 0.2789 | 0.2939 | 0.3009 | 0.3044 | 0.3053  |  0.4341  |  0.5442   |  0.6440   |  0.7500   |   0.8145   |
+|                     faiss&64                      | 0.3416 | 0.3584 | 0.3655 | 0.3685 | 0.3693  |  0.5199  |  0.6447   |  0.7461   |  0.8395   |   0.8955   |
+|          contrastive learnable index&64           | 0.3430 | 0.3597 | 0.3666 | 0.3698 | 0.3705  |  0.5210  |  0.6448   |  0.7461   |  0.8417   |   0.8967   |
+|            distill learnable index&64             | 0.3481 | 0.3646 | 0.3716 | 0.3748 | 0.3755  |  0.5245  |  0.6484   |  0.7469   |  0.8461   |   0.8986   |
+|    contrastive learnable index with encoder&64    | 0.3572 | 0.3744 | 0.3811 | 0.3843 | 0.3850  |  0.5383  |  0.6646   |  0.7617   |  0.8602   |   0.9082   |
+|      distill learnable index with encoder&64      | 0.3580 | 0.3750 | 0.3816 | 0.3848 | 0.3855  |  0.5388  |  0.6642   |  0.7597   |  0.8577   |   0.9083   |
+| distill learnable index with encoder--no label&64 | 0.3688 | 0.3844 | 0.3912 | 0.3942 | 0.3949  |  0.5527  |  0.6692   |  0.7677   |  0.8603   |   0.9103   |
+
+ivf ivf_centers_num=10000
+
+|                 index type&nprobe                 | MRR@5  | MRR@10 | MRR@20 | MRR@50 | MRR@100 | RECALL@5 | RECALL@10 | RECALL@20 | RECALL@50 | RECALL@100 |
+| :-----------------------------------------------: | :----: | :----: | :----: | :----: | :-----: | :------: | :-------: | :-------: | :-------: | :--------: |
+|                     faiss&100                     | 0.3536 | 0.3676 | 0.3728 | 0.3753 | 0.3758  |  0.5132  |  0.6168   |  0.6914   |  0.7672   |   0.8041   |
+|          contrastive learnable index&100          | 0.3537 | 0.3677 | 0.3730 | 0.3754 | 0.3759  |  0.5136  |  0.6174   |  0.6921   |  0.7679   |   0.8048   |
+|            distill learnable index&100            | 0.3537 | 0.3677 | 0.3730 | 0.3754 | 0.3759  |  0.5134  |  0.6174   |  0.6921   |  0.7679   |   0.8048   |
+|   contrastive learnable index with encoder&100    | 0.3539 | 0.3686 | 0.3746 | 0.3773 | 0.3779  |  0.5205  |  0.6385   |  0.7244   |  0.8063   |   0.8507   |
+|     distill learnable index with encoder&100      | 0.3616 | 0.3770 | 0.3827 | 0.3853 | 0.3858  |  0.5276  |  0.6410   |  0.7222   |  0.8036   |   0.8436   |
+| distill learnable index with encoder--nolabel&100 | 0.3606 | 0.3753 | 0.3813 | 0.3840 | 0.3845  |  0.5245  |  0.6327   |  0.7201   |  0.8024   |   0.8450   |
+|                     faiss&200                     | 0.3661 | 0.3807 | 0.3862 | 0.3888 | 0.3893  |  0.5335  |  0.6423   |  0.7205   |  0.7995   |   0.8378   |
+|          contrastive learnable index&200          | 0.3661 | 0.3808 | 0.3863 | 0.3888 | 0.3894  |  0.5336  |  0.6423   |  0.7206   |  0.7996   |   0.8379   |
+|            distill learnable index&200            | 0.3664 | 0.3810 | 0.3865 | 0.3891 | 0.3896  |  0.5337  |  0.6426   |  0.7209   |  0.7999   |   0.8382   |
+|   contrastive learnable index with encoder&200    | 0.3681 | 0.3843 | 0.3905 | 0.3892 | 0.3899  |  0.5395  |  0.6510   |  0.7406   |  0.8253   |   0.8697   |
+|     distill learnable index with encoder&200      | 0.3701 | 0.3862 | 0.3920 | 0.3948 | 0.3953  |  0.5402  |  0.6587   |  0.7422   |  0.8274   |   0.8680   |
+| distill learnable index with encoder--nolabel&200 | 0.3681 | 0.3836 | 0.3898 | 0.3926 | 0.3932  |  0.5366  |  0.6497   |  0.7398   |  0.8250   |   0.8685   |
+
+
+
+ivf_pq ivf_centers_num=10000 bits_per_codebook=8 nprobe=100
+
+|           index type&num of codebooks            | MRR@5  | MRR@10 | MRR@20 | MRR@50 | MRR@100 | RECALL@5 | RECALL@10 | RECALL@20 | RECALL@50 | RECALL@100 |
+| :----------------------------------------------: | :----: | :----: | :----: | :----: | :-----: | :------: | :-------: | :-------: | :-------: | :--------: |
+|                     faiss&16                     | 0.0300 | 0.0346 | 0.0376 | 0.0402 | 0.0412  |  0.0532  |  0.0864   |  0.1289   |  0.2095   |   0.2828   |
+|          contrastive learnable index&16          | 0.1670 | 0.1779 | 0.1837 | 0.1871 | 0.1881  |  0.2627  |  0.3421   |  0.4259   |  0.5297   |   0.6025   |
+|            distill learnable index&16            | 0.1687 | 0.1793 | 0.1849 | 0.1884 | 0.1894  |  0.2653  |  0.3431   |  0.4240   |  0.5289   |   0.6045   |
+|   contrastive learnable index with encoder&16    | 0.1691 | 0.1817 | 0.1885 | 0.1925 | 0.1938  |  0.2671  |  0.3594   |  0.4555   |  0.5787   |   0.6687   |
+|     distill learnable index with encoder&16      | 0.1752 | 0.1879 | 0.1947 | 0.1987 | 0.2001  |  0.2754  |  0.3676   |  0.4647   |  0.5874   |   0.6791   |
+| distill learnable index with encoder--nolabel&16 | 0.1779 | 0.1887 | 0.1954 | 0.1994 | 0.2006  |  0.2849  |  0.3642   |  0.4563   |  0.5826   |   0.6698   |
+|                     faiss&64                     | 0.2409 | 0.2552 | 0.2615 | 0.2647 | 0.2656  |  0.3727  |  0.4796   |  0.5692   |  0.6670   |   0.7310   |
+|          contrastive learnable index&64          | 0.2930 | 0.3071 | 0.3127 | 0.3156 | 0.3163  |  0.4458  |  0.5507   |  0.6322   |  0.7226   |   0.7712   |
+|            distill learnable index&64            | 0.2977 | 0.3116 | 0.3173 | 0.3201 | 0.3209  |  0.4479  |  0.5514   |  0.6340   |  0.7209   |   0.7733   |
+|   contrastive learnable index with encoder&64    | 0.2991 | 0.3149 | 0.3216 | 0.3248 | 0.3256  |  0.4614  |  0.5788   |  0.6745   |  0.7729   |   0.8300   |
+|     distill learnable index with encoder&64      | 0.3293 | 0.3457 | 0.3519 | 0.3549 | 0.3556  |  0.4891  |  0.6098   |  0.6989   |  0.7916   |   0.8399   |
+| distill learnable index with encoder--nolabel&64 | 0.3183 | 0.3340 | 0.3402 | 0.3432 | 0.3439  |  0.4836  |  0.6012   |  0.6884   |  0.7838   |   0.8350   |
+
+ivf_opq ivf_centers_num=10000 bits_per_codebook=8 nprobe=100
+
+|           index type&num of codebooks            | MRR@5  | MRR@10 | MRR@20 | MRR@50 | MRR@100 | RECALL@5 | RECALL@10 | RECALL@20 | RECALL@50 | RECALL@100 |
+| :----------------------------------------------: | :----: | :----: | :----: | :----: | :-----: | :------: | :-------: | :-------: | :-------: | :--------: |
+|                     faiss&16                     | 0.1591 | 0.1709 | 0.1771 | 0.1806 | 0.1817  |  0.2575  |  0.3457   |  0.4320   |  0.5405   |   0.6174   |
+|          contrastive learnable index&16          | 0.2516 | 0.2640 | 0.2702 | 0.2735 | 0.2743  |  0.3886  |  0.4806   |  0.5691   |  0.6674   |   0.7264   |
+|            distill learnable index&16            | 0.2532 | 0.2655 | 0.2720 | 0.2751 | 0.2759  |  0.3924  |  0.4825   |  0.5733   |  0.6690   |   0.7268   |
+|   contrastive learnable index with encoder&16    | 0.2594 | 0.2739 | 0.2806 | 0.2843 | 0.2852  |  0.3995  |  0.5066   |  0.6029   |  0.7155   |   0.7815   |
+|     distill learnable index with encoder&16      | 0.2577 | 0.2720 | 0.2790 | 0.2827 | 0.2836  |  0.3976  |  0.5010   |  0.6019   |  0.7137   |   0.7784   |
+| distill learnable index with encoder--nolabel&16 | 0.2669 | 0.2814 | 0.2881 | 0.2917 | 0.2926  |  0.4062  |  0.5145   |  0.6091   |  0.7181   |   0.7802   |
+|                     faiss&64                     | 0.3069 | 0.3216 | 0.3271 | 0.3301 | 0.3307  |  0.4610  |  0.5700   |  0.6497   |  0.7401   |   0.7860   |
+|          contrastive learnable index&64          | 0.3087 | 0.3229 | 0.3284 | 0.3313 | 0.3320  |  0.4671  |  0.5719   |  0.6533   |  0.7445   |   0.7907   |
+|            distill learnable index&64            | 0.3139 | 0.3273 | 0.3332 | 0.3360 | 0.3366  |  0.4728  |  0.5734   |  0.6573   |  0.7455   |   0.7894   |
+|   contrastive learnable index with encoder&64    | 0.3095 | 0.3230 | 0.3292 | 0.3323 | 0.3332  |  0.4690  |  0.5768   |  0.6772   |  0.7764   |   0.8366   |
+|     distill learnable index with encoder&64      | 0.3216 | 0.3371 | 0.3433 | 0.3465 | 0.3473  |  0.4880  |  0.6017   |  0.6903   |  0.7909   |   0.8422   |
+| distill learnable index with encoder--nolabel&64 | 0.3127 | 0.3276 | 0.3341 | 0.3372 | 0.3380  |  0.4673  |  0.5776   |  0.6718   |  0.7672   |   0.8254   |
+
 
 **The result of embedding through the pooler:**
 

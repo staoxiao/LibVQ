@@ -11,10 +11,10 @@ if __name__ == '__main__':
     index_args, data_args = parser.parse_args_into_dataclasses()
     # get index and train
 
-    documents, documents_count, single_documents, correspodent_id = get_documents(index_args.collection_path, index_args.index_path)
+    source_documents = get_documents(index_args.collection_path, index_args.index_path)
 
     topic_model = TopicModel()
-    topic_model.fit(documents, documents_count, single_documents, correspodent_id)
+    topic_model.fit(source_documents)
     print(topic_model.get_topic_info())
     print(topic_model.get_topic(0))
     print(topic_model.get_document_info())

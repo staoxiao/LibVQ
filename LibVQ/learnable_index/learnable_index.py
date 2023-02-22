@@ -39,6 +39,9 @@ class LearnableIndex(FaissIndex):
         self.model = None
         self.pooler = None
 
+        self.id2text = None
+        self.doc_id = None
+
         if init_pooler_file is not None and os.path.exists(init_pooler_file):
             dicts = torch.load(init_pooler_file)
             self.pooler = Pooler(dicts['A'], dicts['b']).load_state_dict(dicts, strict=True)
@@ -110,25 +113,25 @@ class LearnableIndex(FaissIndex):
             self.is_trained = True
 
             if self.init_index_file is None:
-                init_index_file = f'./temp/{self.index_config.index_method}_ivf{self.index_config.ivf_centers_num}_pq{self.index_config.subvector_num}x{self.index_config.subvector_bits}.index'
+                self.init_index_file = f'./temp/{self.index_config.index_method}_ivf{self.index_config.ivf_centers_num}_pq{self.index_config.subvector_num}x{self.index_config.subvector_bits}.index'
                 os.makedirs('./temp', exist_ok=True)
-            logging.info(f"save the init index to {init_index_file}")
+            logging.info(f"save the init index to {self.init_index_file}")
             if self.init_pooler_file is None:
-                init_pooler_file = f'./temp/pooler.pth'
+                self.init_pooler_file = f'./temp/pooler.pth'
                 os.makedirs('./temp', exist_ok=True)
-            logging.info(f"save the init pooler to {init_pooler_file}")
+            logging.info(f"save the init pooler to {self.init_pooler_file}")
 
-            self.faiss.save_index(init_index_file)
+            self.faiss.save_index(self.init_index_file)
             self.index = self.faiss.index
             # del self.faiss
             self.learnable_vq = LearnableVQ(config=self.index_config,
-                                            init_index_file=init_index_file,
+                                            init_index_file=self.init_index_file,
                                             index_method=self.index_config.index_method,
                                             dist_mode=self.index_config.dist_mode)
 
             self.check_index_parameters(self.learnable_vq, self.index_config.ivf_centers_num,
                                         self.index_config.subvector_num,
-                                        self.index_config.subvector_bits, init_index_file,
+                                        self.index_config.subvector_bits, self.init_index_file,
                                         self.index_config.index_method)
 
             if self.learnable_vq.ivf:

@@ -44,7 +44,9 @@ class TopicModel:
         self.single_documents = None
         self.correspodent_id = None
 
-    def fit(self, documents, documents_count, single_documents, correspodent_id):
+    def fit(self, document_info):
+        documents, documents_count, single_documents, correspodent_id = \
+            document_info[0], document_info[1], document_info[2], document_info[3]
         check_documents_type(documents)
         self.length = len(documents)
         documents = remove_stop_words(documents) if self.language == 'english' else documents
@@ -127,6 +129,29 @@ class TopicModel:
         if self.length == 0:
             raise ValueError('Pleas fit your documents first')
 
+    def find_nearest_topic(self, doc_emb, index_file):
+        index = faiss.read_index(index_file)
+        if isinstance(index, faiss.IndexPreTransform):
+            ivf_index = faiss.downcast_index(index.index)
+        else:
+            ivf_index = index
+
+        coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
+        coarse_embeds = faiss.vector_to_array(coarse_quantizer.xb)
+        center_vecs = coarse_embeds.reshape((-1, ivf_index.d))
+        topic_id = []
+        for j in range(len(doc_emb)):
+            loc = -1
+            value = float('inf')
+            for i in range(len(center_vecs)):
+                if np.linalg.norm(center_vecs[i] - doc_emb[j]) < value:
+                    value = np.linalg.norm(center_vecs[i] - doc_emb[j])
+                    loc = i
+            topic_id.append(loc)
+        if len(topic_id) == 1:
+            return topic_id[0]
+        return topic_id
+
 def c_tf_idf(documents, vectorizer):
     """
     :param documents: (n, 1)  n rows documents, one lines content
@@ -180,7 +205,7 @@ def get_documents(docs_path, index_path):
             correspodent_id.append(i)
         documents.append(temp)
         documents_count.append(num)
-    return documents, documents_count, single_documents, correspodent_id
+    return [documents, documents_count, single_documents, correspodent_id]
 
 def remove_stop_words(documents):
     # stop_words = stopwords.words('english')
@@ -241,28 +266,6 @@ def load_ivf_list_from_faiss_index(index_file):
         documents_id.append(list_ids.copy())
     return documents_id
 
-def find_nearest_topic(doc_emb, index_file):
-    index = faiss.read_index(index_file)
-    if isinstance(index, faiss.IndexPreTransform):
-        ivf_index = faiss.downcast_index(index.index)
-    else:
-        ivf_index = index
-
-    coarse_quantizer = faiss.downcast_index(ivf_index.quantizer)
-    coarse_embeds = faiss.vector_to_array(coarse_quantizer.xb)
-    center_vecs = coarse_embeds.reshape((-1, ivf_index.d))
-    topic_id = []
-    for j in range(len(doc_emb)):
-        loc = -1
-        value = float('inf')
-        for i in range(len(center_vecs)):
-            if np.linalg.norm(center_vecs[i] - doc_emb[j]) < value:
-                value = np.linalg.norm(center_vecs[i] - doc_emb[j])
-                loc = i
-        topic_id.append(loc)
-    if len(topic_id) == 1:
-        return topic_id[0]
-    return topic_id
 
 def check_documents_type(documents):
     """ Check whether the input documents are indeed a list of strings """

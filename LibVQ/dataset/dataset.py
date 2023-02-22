@@ -253,7 +253,7 @@ def write_rel(rel_file, reldict):
 
 class Datasets():
     def __init__(self, file_path, emb_size: int = None, max_doc_length: int = 256, max_query_length: int = 32,
-                 preprocess_dir: str = None, embedding_dir: str = None):
+                 preprocess_dir: str = None, embedding_dir: str = None, new_query: bool = True):
         """
 
         :param file_path: path to load file
@@ -262,6 +262,7 @@ class Datasets():
         :param max_query_length: max search2 length
         :param preprocess_dir: path to save preprocessed files
         :param embedding_dir: path to save embedding files
+        :param new_qeury: Whether to use dev-queries.memmap of the new training under the folder
         """
         # if file_type not in ['text2text', 'text2img', 'img2img']:
         #     raise ValueError("your file_type must in 'text2text, text2img, img2img'")
@@ -291,19 +292,28 @@ class Datasets():
             os.path.join(file_path, 'dev-queries.memmap')) if 'dev-queries.memmap' in dirs else None
         self.emb_size = emb_size
 
-        if os.path.exists(embedding_dir) and os.path.exists(preprocess_dir):
-            preprocess_dirs = os.listdir(preprocess_dir)
+        if os.path.exists(embedding_dir):
             embedding_dirs = os.listdir(embedding_dir)
-            self.train_rels_path = os.path.join(
-                preprocess_dir, 'train-rels.tsv') if 'train-rels.tsv' in preprocess_dirs else None
-            self.dev_rels_path = os.path.join(
-                preprocess_dir, 'dev-rels.tsv') if 'dev-rels.tsv' in preprocess_dirs else None
             self.doc_embeddings_dir = os.path.join(
                 os.path.join(embedding_dir, 'docs.memmap')) if 'docs.memmap' in embedding_dirs else None
             self.train_queries_embedding_dir = os.path.join(os.path.join(
                 embedding_dir, 'train-queries.memmap')) if 'train-queries.memmap' in embedding_dirs else None
             self.dev_queries_embedding_dir = os.path.join(
                 os.path.join(embedding_dir, 'dev-queries.memmap')) if 'dev-queries.memmap' in embedding_dirs else None
+            if new_query:
+                new_embedding_dir = os.path.join(embedding_dir, 'LearnableIndexWithEncoder')
+                if os.path.exists(new_embedding_dir):
+                    new_embedding_dirs = os.listdir(new_embedding_dir)
+                    if 'dev-queries.memmap' in new_embedding_dirs:
+                        self.dev_queries_embedding_dir = os.path.join(
+                            os.path.join(new_embedding_dir, 'dev-queries.memmap'))
+
+        if os.path.exists(preprocess_dir):
+            preprocess_dirs = os.listdir(preprocess_dir)
+            self.train_rels_path = os.path.join(
+                preprocess_dir, 'train-rels.tsv') if 'train-rels.tsv' in preprocess_dirs else None
+            self.dev_rels_path = os.path.join(
+                preprocess_dir, 'dev-rels.tsv') if 'dev-rels.tsv' in preprocess_dirs else None
 
         if self.docs_path is None and self.doc_embeddings_dir is None:
             raise ValueError("you must have at least one doc file 'collection.tsv' or 'docs.memmap'")

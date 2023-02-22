@@ -26,7 +26,7 @@ class DistillLearnableIndex(LearnableIndex):
                  ):
         """
         finetune the distill index
-
+X
         :param index_config: Config of index. Default is None.
         :param encoder_config: Config of Encoder. Default is None.
         :param init_index_file: Create the learnable idex from the faiss index file; if is None, it will create a faiss index and save it

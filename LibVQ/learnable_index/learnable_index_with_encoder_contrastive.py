@@ -107,16 +107,19 @@ class ContrastiveLearnableIndexWithEncoder(LearnableIndexWithEncoder):
                                          temperature=temperature,
                                          checkpoint_save_steps=checkpoint_save_steps,
                                          epochs=epochs)
-        if data.dev_queries_path is not None:
-            os.remove(data.dev_queries_embedding_dir)
+        if data.dev_queries_embedding_dir is not None:
+            if os.path.exists(os.path.join(data.embedding_dir, 'LearnableIndexWithEncoder')):
+                shutil.rmtree(os.path.join(data.embedding_dir, 'LearnableIndexWithEncoder'))
             self.encode(data_dir=data.preprocess_dir,
                         prefix='dev-queries',
                         max_length=data.max_query_length,
-                        output_dir=data.embedding_dir,
+                        output_dir=os.path.join(data.embedding_dir, 'LearnableIndexWithEncoder'),
                         batch_size=2048,
                         is_query=True,
                         return_vecs=True
                         )
+            data.dev_queries_embedding_dir = os.path.join(data.embedding_dir, 'LearnableIndexWithEncoder',
+                                                          'dev-queries.memmap')
 
     def fit(self,
             query_embeddings: Union[str, numpy.ndarray] = None,

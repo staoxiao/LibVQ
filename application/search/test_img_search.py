@@ -13,11 +13,12 @@ if __name__ == '__main__':
     index_args, data_args, search_args = parser.parse_args_into_dataclasses()
     # get index and train
     index = LearnableIndex.load_all(index_args.load_path)
-
+    index.build(data_args.collection_path)
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     answer, answer_id = img_search(search_args.query,
-                                   index, data_args.collection_path,
-                                   model, processor)
+                                   index,
+                                   model,
+                                   processor)
     print(answer)
     print(answer_id)

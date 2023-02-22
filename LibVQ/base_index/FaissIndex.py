@@ -39,6 +39,9 @@ class FaissIndex(BaseIndex):
         self.model = None
         self.pooler = None
 
+        self.id2text = None
+        self.doc_id = None
+
         assert index_config.dist_mode in ('ip', 'l2')
         self.index_metric = faiss.METRIC_INNER_PRODUCT if index_config.dist_mode == 'ip' else faiss.METRIC_L2
 
@@ -123,20 +126,41 @@ class FaissIndex(BaseIndex):
             self.add(doc_embeddings)
             self.is_trained = True
 
-    def search_query(self, queries, docs_path, kValue: int = 20):
+    def build(self, docs_path):
         if isinstance(docs_path, str):
             id2text = dict()
             doc_id = dict()
             docsFile = open(docs_path, 'r', encoding='UTF-8')
             count = 0
             for line in docsFile:
-                doc_id[count] = line.split('\t')[0]
-                id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
+                self.doc_id[count] = line.split('\t')[0]
+                self.id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
                 count += 1
             docsFile.close()
         else:
-            id2text = docs_path[0]
-            doc_id = docs_path[1]
+            self.id2text = docs_path[0]
+            self.doc_id = docs_path[1]
+
+    def search_query(self, queries, docs_path: None, kValue: int = 20):
+        if docs_path is not None:
+            if isinstance(docs_path, str):
+                id2text = dict()
+                doc_id = dict()
+                docsFile = open(docs_path, 'r', encoding='UTF-8')
+                count = 0
+                for line in docsFile:
+                    doc_id[count] = line.split('\t')[0]
+                    id2text[count] = ' '.join(line.strip('\n').split('\t')[1:])
+                    count += 1
+                docsFile.close()
+            else:
+                id2text = docs_path[0]
+                doc_id = docs_path[1]
+        else:
+            if self.id2text is None or self.doc_id is None:
+                raise ValueError("You should provide your docs path")
+            id2text = self.id2text
+            doc_id = self.doc_id
 
         input_data = self.model.text_tokenizer(queries, padding=True, truncation=True)
         input_ids = torch.LongTensor(input_data['input_ids'])
@@ -201,7 +225,7 @@ class FaissIndex(BaseIndex):
         if self.model is not None: self.model.encoder.save(os.path.join(save_path, 'encoder.bin'))
         if self.pooler is not None: self.pooler.save(os.path.join(save_path, 'pooler.pth'))
 
-    def get(self, data, file):
+    def get_emb(self, data, file):
         emb = np.memmap(file, dtype=np.float32, mode="r")
         emb = emb.reshape(-1, data.emb_size)
         if self.pooler:
